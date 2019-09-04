@@ -1,0 +1,23 @@
+{
+    "defaultSeverity": "error",
+    "extends": [
+        "tslint:recommended"
+    ],
+    "jsRules": {},
+    "rules": {
+      "interface-name": [false],
+      "max-line-length": [true, {"limit": 120, "ignore-pattern": "(^ *(return +)?function)|(^import )|(^export)"}],
+      "object-literal-sort-keys": false,
+      "no-consecutive-blank-lines": [true, 2],
+      "max-classes-per-file": false,
+      "variable-name": {
+        "options": [
+          "ban-keywords",
+          "require-const-for-all-caps",
+          "check-format",
+          "allow-leading-underscore"
+        ]
+      }
+    },
+    "rulesDirectory": []
+}

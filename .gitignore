@@ -1,0 +1,8 @@
+/.bundle
+/.asciidoctor
+/.virtualenv
+/bin
+/vendor
+/dist
+/node_modules
+/README.html

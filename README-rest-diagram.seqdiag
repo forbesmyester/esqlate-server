@@ -1,0 +1,24 @@
+seqdiag {
+
+  edge_length=400;
+  default_fontsize=12;
+
+  c [label="client"];
+  s [label="server"];
+
+  c -> s [label="GET: /definition/order"];
+  c <- s [label="200 OK",note="Response (Definition):\n \n 1| {\n 2|   \"title\": \"Create order\",\n 3|   \"statement\": \"INSERT INTO order (customer_id) VALUES ($customer_id)\"\n 4| }\n"]
+
+  c -> s [label="POST: /request/order",note="Request (RequestCreationParameter):\n\n1| [ {\n2|   \"field_name\": \"customer_id\",\n3|   \"field_value\": 53 \n4| } ]"];
+  c <- s [label="202 ACCEPTED\nLocation: /request/order/82",note="Response (RequestCreation):\n\n1| {\n2|   \"location\": \"/request/order/82\"\n4| }"]
+
+  c -> s [label="GET: /request/order/82"]
+  c <- s [label="202 ACCEPTED",note="Response (Request):\n\n1| { \"status\": \"pending\" }"]
+
+  c -> s [label="GET: /request/order/82"]
+  c <- s [label="301 OK\nLocation: /result/order/74",note="Response (Request):\n\n1| {\n2|   \"status\": \"complete\",\n3|   \"location\": \"/result/order/74\"\n4| }"]
+
+  c -> s [label="GET /result/order/74"]
+  c <- s [label="200 OK", note="Response (Result):\n\n1❘ {\n2❘   \"fields\": [\n3|     { \"field_name\": \"id\" , \"field_type\": \"integer\" },\n4|     { \"field_name\": \"customer_id\" , \"field_type\": \"integer\" }\n5|   ],\n6|   \"rows\": [[ 74, 53 ]]\n7| }"]
+}
+

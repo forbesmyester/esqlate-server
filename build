@@ -1,0 +1,20 @@
+
+
+# # Dependencies
+#
+# ## Ruby
+#
+# bundler install --binstubs --path vendor/bundle
+# export PATH=$PATH:./bin
+#
+# ## Python
+#
+# virtualenv -p python3 .virtualenv
+# source .virtualenv/bin/activate
+# pip3 install -r requirements.txt
+
+seqdiag ./README-rest-diagram.seqdiag -f /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf -o README-rest-diagram.png
+
+asciidoctor -r asciidoctor-diagram README.adoc
+
+npm test

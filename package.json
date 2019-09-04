@@ -1,0 +1,40 @@
+{
+  "name": "esqlate-server",
+  "version": "0.0.0",
+  "description": "Server for the Esqlate project",
+  "main": "index.js",
+  "dependencies": {
+    "ajv": "^6.10.2",
+    "body-parser": "^1.19.0",
+    "express": "^4.17.1",
+    "pg": "^7.12.1",
+    "random-crypto-string": "^1.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.0",
+    "@types/pg": "^7.4.14",
+    "@types/tape": "^4.2.33",
+    "forever": "^1.0.0",
+    "nodemon": "^1.19.1",
+    "tape": "^4.11.0",
+    "ts-node": "^8.3.0",
+    "tslint": "^5.18.0",
+    "typescript": "^3.5.3"
+  },
+  "scripts": {
+    "test": "find test -type f | parallel ts-node {} && tsc && tslint --project tsconfig.json",
+    "start": "node dist/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com:forbesmyester/esqlate-server.git"
+  },
+  "keywords": [
+    "sql",
+    "postgresql",
+    "rest",
+    "api"
+  ],
+  "author": "Matt Forrester <github.com@speechmarks.com>",
+  "license": "GPL-3.0-or-later"
+}
