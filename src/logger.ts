@@ -17,7 +17,10 @@ export enum EsqlateErrorEnum {
     MissingLocal = "ERR_MISSING_LOCAL",
     MissingRequestParam = "ERR_MISSING_REQUEST_PARAM",
     InvalidRequestBody = "ERR_INVALID_REQUEST_BODY",
-    NotFoundPersistenceError = "NOT_FOUND_PERSISTENCE_ERROR",
+    NotFoundPersistenceError = "ERR_NOT_FOUND_PERSISTENCE_ERROR",
+    SqlExecution = "ERR_SQL_EXECUTION",
+    MissingVariable = "ERR_MISSING_VARIABLE",
+    InvalidRequestParameter = "ERR_INVALID_REQUEST_PARAMETER",
 }
 
 export class EsqlateError extends Error {
@@ -26,6 +29,10 @@ export class EsqlateError extends Error {
         super(`${code}: ${msg}`);
         this.code = code;
     }
+}
+
+export class EsqlateErrorInvalidRequestParameter extends EsqlateError {
+    constructor(msg: string) { super(EsqlateErrorEnum.InvalidDefinition, msg); }
 }
 
 export class EsqlateErrorInvalidDefinition extends EsqlateError {
@@ -40,16 +47,20 @@ export class EsqlateErrorMissingLocal extends EsqlateError {
     constructor(msg: string) { super(EsqlateErrorEnum.MissingLocal, msg); }
 }
 
-export class EsqlateErrorMissingRequestParam extends EsqlateError {
-    constructor(msg: string) { super(EsqlateErrorEnum.MissingRequestParam, msg); }
-}
-
 export class EsqlateErrorInvalidRequestBody extends EsqlateError {
     constructor(msg: string) { super(EsqlateErrorEnum.InvalidRequestBody, msg); }
 }
 
+export class EsqlateErrorMissingVariables extends EsqlateError {
+    constructor(msg: string) { super(EsqlateErrorEnum.MissingVariable, msg); }
+}
+
 export class EsqlateErrorNotFoundPersistence extends EsqlateError {
     constructor(msg: string) { super(EsqlateErrorEnum.NotFoundPersistenceError, msg); }
+}
+
+export class EsqlateErrorSqlExecution extends EsqlateError {
+    constructor(msg: string) { super(EsqlateErrorEnum.SqlExecution, msg); }
 }
 
 

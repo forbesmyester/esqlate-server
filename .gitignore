@@ -6,3 +6,7 @@
 /dist
 /node_modules
 /README.html
+/persistence
+Gemfile.lock
+env.ndjson
+docker-compose.yml
