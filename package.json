@@ -24,7 +24,10 @@
     "typescript": "^3.5.3"
   },
   "scripts": {
-    "test": "find test -type f | parallel ts-node {} && tsc && tslint --project tsconfig.json",
+    "test": "find test -type f | parallel ts-node {} && npm run-script build && npm run-script lint",
+    "build": "tsc",
+    "build-doc": "seqdiag ./README-rest-diagram.seqdiag -f /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf -o README-rest-diagram.png && asciidoctor -r asciidoctor-diagram README.adoc",
+    "lint": "tslint --project tsconfig.json",
     "start": "node dist/server.js"
   },
   "repository": {
