@@ -8,7 +8,7 @@ import { EsqlateDefinition, EsqlateRequestCreationParameter, EsqlateRequestCreat
 import { EsqlateQueue } from "esqlate-queue";
 import randCryptoString from "random-crypto-string";
 
-import { EsqlateError, EsqlateErrorEnum, EsqlateErrorInvalidDefinition, EsqlateErrorInvalidRequestBody, EsqlateErrorInvalidRequestParameter, EsqlateErrorMissingDefinition, EsqlateErrorMissingLocal, EsqlateErrorMissingVariables, EsqlateErrorNotFoundPersistence, Level, Logger } from "./logger";
+import { EsqlateError, EsqlateErrorEnum, EsqlateErrorInvalidDefinition, EsqlateErrorInvalidRequestBody, EsqlateErrorInvalidRequestParameter, EsqlateErrorMissingDefinition, EsqlateErrorMissingLocal, EsqlateErrorMissingVariables, Level, Logger } from "./logger";
 import { Persistence } from "./persistence";
 import { QueueItem, ResultCreated } from "./QueryRunner";
 
@@ -16,7 +16,7 @@ import * as schemaRequestCreation from "esqlate-lib/res/schema-request-creation-
 
 // TODO: Move types to seperate files
 
-const DEFINITION_DIRECTORY = "./node_modules/esqlate-lib/test/res/definition";
+const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY as string;
 
 export interface ServiceInformation {
     getApiRoot: (req: Request) => string;

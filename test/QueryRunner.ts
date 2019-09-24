@@ -191,5 +191,3 @@ test('pgQuery', (assert) => {
     assert.end();
 
 });
-
-

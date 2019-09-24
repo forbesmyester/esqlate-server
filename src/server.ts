@@ -132,6 +132,10 @@ getLookupOid(pool)
             logger(Level.FATAL, "STARTUP", "no LISTEN_PORT environmental variable defined");
         }
 
+        if (!process.env.hasOwnProperty("DEFINITION_DIRECTORY")) {
+            logger(Level.FATAL, "STARTUP", "no DEFINITION_DIRECTORY environmental variable defined");
+        }
+
         const persistence = new FilesystemPersistence("persistence");
         const serviceInformation: ServiceInformation = {
             getApiRoot: () => "" + process.env.ADVERTISED_API_ROOT,

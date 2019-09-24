@@ -1,4 +1,4 @@
-import { EsqlateDefinition, EsqlateRequest, EsqlateRequestCreationParameter, EsqlateResult } from "esqlate-lib";
+import { EsqlateDefinition, EsqlateRequestCreationParameter, EsqlateResult } from "esqlate-lib";
 import { EsqlateErrorNotFoundPersistence } from "./logger";
 
 
