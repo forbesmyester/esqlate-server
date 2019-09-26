@@ -10,7 +10,7 @@ import randCryptoString from "random-crypto-string";
 
 import { EsqlateError, EsqlateErrorEnum, EsqlateErrorInvalidDefinition, EsqlateErrorInvalidRequestBody, EsqlateErrorInvalidRequestParameter, EsqlateErrorMissingDefinition, EsqlateErrorMissingLocal, EsqlateErrorMissingVariables, Level, Logger } from "./logger";
 import { Persistence } from "./persistence";
-import { QueueItem, ResultCreated } from "./QueryRunner";
+import { QueueItem, ResultCreated, DemandRunner } from "./QueryRunner";
 
 import * as schemaRequestCreation from "esqlate-lib/res/schema-request-creation-parameter.json";
 
@@ -31,6 +31,8 @@ interface NeedsPersistence { persistence: Persistence; }
 interface NeedsServiceInformation { serviceInformation: ServiceInformation; }
 interface NeedsQueue { queue: EsqlateQueue<QueueItem, ResultCreated>; }
 interface NeedsServerVariableRequester { serverVariableRequester: ServerVariableRequester; }
+
+interface NeedsDemandRunner { demandRunner: DemandRunner };
 
 interface Local { [k: string]: any; }
 
@@ -170,6 +172,7 @@ export function outstandingRequestId({ persistence }: NeedsPersistence) {
 
 
 export function getRequest({ persistence, serviceInformation: { getApiRoot } }: NeedsPersistence & NeedsServiceInformation) {
+
     return function getRequestImpl(req: Request, res: Response, next: NextFunction) {
 
         assert(req.params.hasOwnProperty("definitionName"), "Missing request param definitionName");
@@ -208,22 +211,41 @@ export function getRequest({ persistence, serviceInformation: { getApiRoot } }: 
     };
 }
 
+export function runDemand({ serverVariableRequester, serviceInformation: { getApiRoot }, demandRunner }: NeedsServiceInformation & NeedsDemandRunner & NeedsServerVariableRequester) {
 
-export function createRequest({ serverVariableRequester, persistence, queue, serviceInformation: { getApiRoot } }: NeedsPersistence & NeedsServiceInformation & NeedsQueue & NeedsServerVariableRequester) {
+    return async function runDemandImpl(req: Request, res: Response, next: NextFunction) {
 
-    const ajv = new Ajv();
-    const validate = ajv.compile(schemaRequestCreation);
+        let variables: EsqlateRequestCreationParameter;
+        try {
+            variables = getVariables(
+                { getApiRoot },
+                serverVariableRequester,
+                req
+            );
+        } catch (e) { return next(e); }
 
-    function getMissingVariables(definition: EsqlateDefinition, reqBody: EsqlateRequestCreationParameter) {
-        const available = new Set(reqBody.map((rb) => rb.field_name));
-        return definition.variables
-            .filter((reqd) => {
-                return !available.has(reqd.name);
+        const definition: EsqlateDefinition = getRequestLocalKey("definition", req);
+
+        const definitionName = safeRequestParameter(
+            "definitionName",
+            req.params.definitionName,
+        );
+
+        // TODO: Pass in server variables propertly
+        demandRunner(definition, [], variables)
+            .then((result: EsqlateResult) => {
+                res.json(result);
+                next();
             })
-            .map(({ name }) => name);
-    }
+            .catch((err) => { next(err); });
 
-    function getVariables(req: Request): EsqlateRequestCreationParameter {
+    };
+
+}
+
+function getVariables({ getApiRoot }: ServiceInformation, serverVariableRequester: ServerVariableRequester, req: Request): EsqlateRequestCreationParameter {
+
+    function get(req: Request): EsqlateRequestCreationParameter {
         const serverVariables: EsqlateRequestCreationParameter = serverVariableRequester.listServerVariable(req).map(
             (name) => ({ field_name: name, field_value: serverVariableRequester.getServerVariable(req, name) }),
         );
@@ -238,38 +260,72 @@ export function createRequest({ serverVariableRequester, persistence, queue, ser
         );
     }
 
+    function getMissingVariables(definition: EsqlateDefinition, reqBody: EsqlateRequestCreationParameter) {
+        const available = new Set(reqBody.map((rb) => rb.field_name));
+        return definition.variables
+            .filter((reqd) => {
+                return !available.has(reqd.name);
+            })
+            .map(({ name }) => name);
+    }
+
+
+    assert(req.params.hasOwnProperty("definitionName"), "Missing request param definitionName");
+
+    const definition: EsqlateDefinition = getRequestLocalKey("definition", req);
+    const definitionName = safeRequestParameter(
+        "definitionName",
+        req.params.definitionName,
+    );
+    const variables = get(req);
+    const valid = ajvValidateRequest(variables);
+
+    if (!valid) {
+        const errors = ajvValidateRequest.errors;
+        const msg = pathJoin(
+            getApiRoot(req),
+            "request",
+            definitionName,
+        ) + ": " + JSON.stringify(errors);
+        throw new EsqlateErrorInvalidRequestBody(msg);
+    }
+
+    const missingVariables = getMissingVariables(definition, variables);
+    if (missingVariables.length) {
+        const errorMsg = "Missing Variables: " + JSON.stringify(missingVariables);
+        const msg = pathJoin(
+            getApiRoot(req),
+            "request",
+            definitionName,
+        ) + ": " + JSON.stringify(errorMsg);
+        throw new EsqlateErrorMissingVariables(msg);
+    }
+
+    return variables;
+
+}
+
+const ajv = new Ajv();
+const ajvValidateRequest = ajv.compile(schemaRequestCreation);
+
+export function createRequest({ serverVariableRequester, persistence, queue, serviceInformation: { getApiRoot } }: NeedsPersistence & NeedsServiceInformation & NeedsQueue & NeedsServerVariableRequester) {
+
     return function createRequestImpl(req: Request, res: Response, next: NextFunction) {
 
-        assert(req.params.hasOwnProperty("definitionName"), "Missing request param definitionName");
+        let variables: EsqlateRequestCreationParameter;
+        try {
+            variables = getVariables(
+                { getApiRoot },
+                serverVariableRequester,
+                req
+            );
+        } catch (e) { return next(e); }
 
         const definition: EsqlateDefinition = getRequestLocalKey("definition", req);
         const definitionName = safeRequestParameter(
             "definitionName",
             req.params.definitionName,
         );
-        const variables = getVariables(req);
-        const valid = validate(variables);
-
-        if (!valid) {
-            const errors = validate.errors;
-            const msg = pathJoin(
-                getApiRoot(req),
-                "request",
-                definitionName,
-            ) + ": " + JSON.stringify(errors);
-            return next(new EsqlateErrorInvalidRequestBody(msg));
-        }
-
-        const missingVariables = getMissingVariables(definition, variables);
-        if (missingVariables.length) {
-            const errorMsg = "Missing Variables: " + JSON.stringify(missingVariables);
-            const msg = pathJoin(
-                getApiRoot(req),
-                "request",
-                definitionName,
-            ) + ": " + JSON.stringify(errorMsg);
-            return next(new EsqlateErrorMissingVariables(msg));
-        }
 
         randCryptoString(8)
             .then((requestId) => {
@@ -280,6 +336,7 @@ export function createRequest({ serverVariableRequester, persistence, queue, ser
                 ).then(() => requestId);
             })
             .then((requestId) => {
+                // TODO: Pass in server variables properly
                 const queueItem: QueueItem = {
                     definition,
                     requestId,

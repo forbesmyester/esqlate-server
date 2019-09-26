@@ -7,10 +7,10 @@ import { Pool } from "pg";
 import getEsqlateQueue from "esqlate-queue";
 import { EsqlateQueue, EsqlateQueueWorker } from "esqlate-queue";
 import logger, { Level } from "./logger";
-import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureRequestErrorHandler, getDefinition, getRequest, getResult, loadDefinition, outstandingRequestId, ServerVariableRequester, ServiceInformation } from "./middleware";
+import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureRequestErrorHandler, getDefinition, getRequest, getResult, loadDefinition, outstandingRequestId, runDemand, ServerVariableRequester, ServiceInformation } from "./middleware";
 import nextWrap, { NextWrapDependencies } from "./nextWrap";
 import { FilesystemPersistence, Persistence } from "./persistence";
-import { getEsqlateQueueWorker, getLookupOid, QueueItem, ResultCreated } from "./QueryRunner";
+import { getDemandRunner, getEsqlateQueueWorker, getLookupOid, DemandRunner, QueueItem, ResultCreated } from "./QueryRunner";
 
 
 async function writeResults(persistence: Persistence, queue: EsqlateQueue<QueueItem, ResultCreated>) {
@@ -37,6 +37,7 @@ function setupApp(
     persistence: Persistence,
     serviceInformation: ServiceInformation,
     queue: EsqlateQueue<QueueItem, ResultCreated>,
+    demandRunner: DemandRunner
 ): Express {
 
     const app = express();
@@ -68,6 +69,19 @@ function setupApp(
         nwCaptureRequestStart,
         nwLoadDefinition,
         nextWrap(nextWrapDependencies, 1000, getDefinition),
+        nwCaptureRequestEnd,
+        getCaptureRequestErrorHandler(logger),
+    );
+
+    app.post(
+        "/demand/:definitionName",
+        nwCaptureRequestStart,
+        nwLoadDefinition,
+        nextWrap(
+            nextWrapDependencies,
+            1000,
+            runDemand({ serviceInformation, serverVariableRequester, demandRunner }),
+        ),
         nwCaptureRequestEnd,
         getCaptureRequestErrorHandler(logger),
     );
@@ -146,6 +160,7 @@ getLookupOid(pool)
             persistence,
             serviceInformation,
             queue,
+            getDemandRunner(pool, lookupOid)
         );
 
         app.listen(process.env.LISTEN_PORT, () => {

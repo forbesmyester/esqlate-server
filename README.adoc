@@ -1,5 +1,11 @@
 # Esqlate-Server
 
+## What is the Esqlate project
+
+Esqlate is an attempt to build a user interface that allows the quick creation of incredibly basic admin panels for people who can either read SQL, but who cannot necessarily write it or for people who wish to create a library of SQL operations / reports for a specific project.
+
+It aims to give a reasonable web interface which gives the user the ability to run queries while specifying the value of specific parameters (while other parameters will be restricted to the systems administrator).
+
 ## Overall Data Flow
 
 image:README-rest-diagram.png[]
@@ -47,7 +53,7 @@ echo '
         "title": "Customer Search",
         "description": "List customers using a substring search",
         "variables": [{ "name": "search_string", "variable_type": "string" }],
-        "statement": "SELECT * FROM customers WHERE LOWER(company_name) LIKE CONCAT('"'%'"', LOWER($search_string), '"'%'"') OR LOWER(contact_name) LIKE CONCAT('"'%'"', LOWER($search_string), '"'%'"')"
+        "statement": "SELECT * FROM customers\nWHERE\n  LOWER(company_name) LIKE CONCAT('"'%'"', LOWER($search_string), '"'%'"') OR\n  LOWER(contact_name) LIKE CONCAT('"'%'"', LOWER($search_string), '"'%'"')"
     }' > definition/customer_search.json
 
 ```
