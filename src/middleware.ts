@@ -4,15 +4,15 @@ import fs from "fs";
 import { join as pathJoin } from "path";
 
 import Ajv from "ajv";
-import { EsqlateDefinition, EsqlateRequestCreationParameter, EsqlateRequestCreationParameterItem, EsqlateResult } from "esqlate-lib";
+import { EsqlateArgument, EsqlateDefinition, EsqlateRequestCreation, EsqlateResult } from "esqlate-lib";
 import { EsqlateQueue } from "esqlate-queue";
 import randCryptoString from "random-crypto-string";
 
 import { EsqlateError, EsqlateErrorEnum, EsqlateErrorInvalidDefinition, EsqlateErrorInvalidRequestBody, EsqlateErrorInvalidRequestParameter, EsqlateErrorMissingDefinition, EsqlateErrorMissingLocal, EsqlateErrorMissingVariables, Level, Logger } from "./logger";
 import { Persistence } from "./persistence";
-import { QueueItem, ResultCreated, DemandRunner } from "./QueryRunner";
+import { DemandRunner, QueueItem, ResultCreated } from "./QueryRunner";
 
-import * as schemaRequestCreation from "esqlate-lib/res/schema-request-creation-parameter.json";
+import * as schemaRequestCreation from "esqlate-lib/res/schema-request-creation.json";
 
 // TODO: Move types to seperate files
 
@@ -24,7 +24,7 @@ export interface ServiceInformation {
 
 export interface ServerVariableRequester {
     listServerVariable: (req: Request) => string[];
-    getServerVariable: (req: Request, name: string) => EsqlateRequestCreationParameterItem["field_value"];
+    getServerVariable: (req: Request, name: string) => EsqlateArgument["value"];
 }
 
 interface NeedsPersistence { persistence: Persistence; }
@@ -32,7 +32,7 @@ interface NeedsServiceInformation { serviceInformation: ServiceInformation; }
 interface NeedsQueue { queue: EsqlateQueue<QueueItem, ResultCreated>; }
 interface NeedsServerVariableRequester { serverVariableRequester: ServerVariableRequester; }
 
-interface NeedsDemandRunner { demandRunner: DemandRunner };
+interface NeedsDemandRunner { demandRunner: DemandRunner; }
 
 interface Local { [k: string]: any; }
 
@@ -162,7 +162,11 @@ export function outstandingRequestId({ persistence }: NeedsPersistence) {
         res.end();
     }
 
-    return function outstandingRequestIdImpl(req: Request, res: Response, next: NextFunction) {
+    return function outstandingRequestIdImpl(
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ) {
         outstandingRequestIdSender(req, res)
             .then(() => next())
             .catch((err) => next(err));
@@ -215,12 +219,12 @@ export function runDemand({ serverVariableRequester, serviceInformation: { getAp
 
     return async function runDemandImpl(req: Request, res: Response, next: NextFunction) {
 
-        let variables: EsqlateRequestCreationParameter;
+        let args: EsqlateArgument[];
         try {
-            variables = getVariables(
+            args = getVariables(
                 { getApiRoot },
                 serverVariableRequester,
-                req
+                req,
             );
         } catch (e) { return next(e); }
 
@@ -231,8 +235,8 @@ export function runDemand({ serverVariableRequester, serviceInformation: { getAp
             req.params.definitionName,
         );
 
-        // TODO: Pass in server variables propertly
-        demandRunner(definition, [], variables)
+        // TODO: Pass in server args propertly
+        demandRunner(definition, [], args)
             .then((result: EsqlateResult) => {
                 res.json(result);
                 next();
@@ -243,26 +247,26 @@ export function runDemand({ serverVariableRequester, serviceInformation: { getAp
 
 }
 
-function getVariables({ getApiRoot }: ServiceInformation, serverVariableRequester: ServerVariableRequester, req: Request): EsqlateRequestCreationParameter {
+function getVariables({ getApiRoot }: ServiceInformation, serverVariableRequester: ServerVariableRequester, req: Request): EsqlateArgument[] {
 
-    function get(req: Request): EsqlateRequestCreationParameter {
-        const serverVariables: EsqlateRequestCreationParameter = serverVariableRequester.listServerVariable(req).map(
-            (name) => ({ field_name: name, field_value: serverVariableRequester.getServerVariable(req, name) }),
+    function get(): EsqlateArgument[] {
+        const serverVariables: EsqlateArgument[] = serverVariableRequester.listServerVariable(req).map(
+            (name) => ({ name, value: serverVariableRequester.getServerVariable(req, name) }),
         );
 
         return serverVariables.reduce(
-            (acc: EsqlateRequestCreationParameter, sv) => {
-                const r = acc.filter((a) => !(("" + a.field_name) === ("" + sv.field_name)));
+            (acc: EsqlateArgument[], sv) => {
+                const r = acc.filter((a) => !(("" + a.name) === ("" + sv.name)));
                 r.push(sv);
                 return r;
             },
-            req.body.concat([]),
+            (req.body as EsqlateRequestCreation).arguments.concat([]),
         );
     }
 
-    function getMissingVariables(definition: EsqlateDefinition, reqBody: EsqlateRequestCreationParameter) {
-        const available = new Set(reqBody.map((rb) => rb.field_name));
-        return definition.variables
+    function getMissingVariables(args: EsqlateArgument[]) {
+        const available = new Set(args.map((rb) => rb.name));
+        return definition.parameters
             .filter((reqd) => {
                 return !available.has(reqd.name);
             })
@@ -277,11 +281,10 @@ function getVariables({ getApiRoot }: ServiceInformation, serverVariableRequeste
         "definitionName",
         req.params.definitionName,
     );
-    const variables = get(req);
-    const valid = ajvValidateRequest(variables);
+    const valid = ajvValidateRequestCreation(req.body);
 
     if (!valid) {
-        const errors = ajvValidateRequest.errors;
+        const errors = ajvValidateRequestCreation.errors;
         const msg = pathJoin(
             getApiRoot(req),
             "request",
@@ -290,7 +293,9 @@ function getVariables({ getApiRoot }: ServiceInformation, serverVariableRequeste
         throw new EsqlateErrorInvalidRequestBody(msg);
     }
 
-    const missingVariables = getMissingVariables(definition, variables);
+    const variables = get();
+
+    const missingVariables = getMissingVariables(variables);
     if (missingVariables.length) {
         const errorMsg = "Missing Variables: " + JSON.stringify(missingVariables);
         const msg = pathJoin(
@@ -306,18 +311,18 @@ function getVariables({ getApiRoot }: ServiceInformation, serverVariableRequeste
 }
 
 const ajv = new Ajv();
-const ajvValidateRequest = ajv.compile(schemaRequestCreation);
+const ajvValidateRequestCreation = ajv.compile(schemaRequestCreation);
 
 export function createRequest({ serverVariableRequester, persistence, queue, serviceInformation: { getApiRoot } }: NeedsPersistence & NeedsServiceInformation & NeedsQueue & NeedsServerVariableRequester) {
 
     return function createRequestImpl(req: Request, res: Response, next: NextFunction) {
 
-        let variables: EsqlateRequestCreationParameter;
+        let variables: EsqlateArgument[];
         try {
             variables = getVariables(
                 { getApiRoot },
                 serverVariableRequester,
-                req
+                req,
             );
         } catch (e) { return next(e); }
 

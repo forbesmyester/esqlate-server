@@ -1,4 +1,4 @@
-import { EsqlateDefinition, EsqlateRequestCreationParameter, EsqlateResult } from "esqlate-lib";
+import { EsqlateArgument, EsqlateDefinition, EsqlateResult } from "esqlate-lib";
 import { EsqlateErrorNotFoundPersistence } from "./logger";
 
 
@@ -20,7 +20,7 @@ export interface Persistence {
     createRequest(
         definitionName: EsqlateDefinition["name"],
         requestId: RequestId,
-        values: EsqlateRequestCreationParameter): Promise<RequestId>;
+        values: EsqlateArgument[]): Promise<RequestId>;
     getResult(definitionName: EsqlateDefinition["name"], resultId: ResultId): Promise<EsqlateResult>;
     createResult(
         definitionName: EsqlateDefinition["name"],
@@ -32,7 +32,7 @@ export type RequestId = string;
 export type ResultId = string;
 
 export interface RequestFileData {
-    params: EsqlateRequestCreationParameter;
+    params: EsqlateArgument[];
     definition: string;
 }
 
@@ -84,7 +84,7 @@ export class FilesystemPersistence implements Persistence {
     public createRequest(
             definitionName: EsqlateDefinition["name"],
             requestId: RequestId,
-            values: EsqlateRequestCreationParameter): Promise<RequestId> {
+            values: EsqlateArgument[]): Promise<RequestId> {
 
         assert(requestId.length === this.pathSeperator2, `Request Ids must be ${this.pathSeperator2} characters long`);
 

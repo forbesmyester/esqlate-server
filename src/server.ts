@@ -1,16 +1,49 @@
+import Ajv from "ajv";
 import assert = require("assert");
 import bodyParser from "body-parser";
 import cors, {CorsOptions} from "cors";
 import express, { Express, NextFunction, Request, Response, static as expressStatic } from "express";
+import fs from "fs";
+import path from "path";
 import { Pool } from "pg";
 
+import {EsqlateDefinition} from "esqlate-lib";
+import * as schemaDefinition from "esqlate-lib/res/schema-definition.json";
 import getEsqlateQueue from "esqlate-queue";
 import { EsqlateQueue, EsqlateQueueWorker } from "esqlate-queue";
 import logger, { Level } from "./logger";
 import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureRequestErrorHandler, getDefinition, getRequest, getResult, loadDefinition, outstandingRequestId, runDemand, ServerVariableRequester, ServiceInformation } from "./middleware";
 import nextWrap, { NextWrapDependencies } from "./nextWrap";
 import { FilesystemPersistence, Persistence } from "./persistence";
-import { getDemandRunner, getEsqlateQueueWorker, getLookupOid, DemandRunner, QueueItem, ResultCreated } from "./QueryRunner";
+import { DemandRunner, getDemandRunner, getEsqlateQueueWorker, getLookupOid, QueueItem, ResultCreated } from "./QueryRunner";
+
+const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY as string;
+
+const ajv = new Ajv();
+const ajvValidateDefinition = ajv.compile(schemaDefinition);
+
+fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
+    if (readDirErr) { logger(Level.FATAL, "STARTUP", "Could not list definition"); }
+    filenames.forEach((filename) => {
+        const fp = path.join(DEFINITION_DIRECTORY, filename);
+        fs.readFile(fp, { encoding: "utf8" }, (readFileErr, data) => {
+            if (readFileErr) { logger(Level.FATAL, "STARTUP", `Could not read definition ${fp}`); }
+            let json: EsqlateDefinition;
+            try {
+                json = JSON.parse(data);
+            } catch (e) {
+                logger(Level.FATAL, "STARTUP", `Could not unserialize definition ${fp}`);
+                return;
+            }
+            const valid = ajvValidateDefinition(json);
+
+            if (!valid) {
+                const errors = ajvValidateDefinition.errors;
+                logger(Level.FATAL, "STARTUP", `Definition ${fp} has errors ${JSON.stringify(errors)}`);
+            }
+        });
+    });
+});
 
 
 async function writeResults(persistence: Persistence, queue: EsqlateQueue<QueueItem, ResultCreated>) {
@@ -37,7 +70,7 @@ function setupApp(
     persistence: Persistence,
     serviceInformation: ServiceInformation,
     queue: EsqlateQueue<QueueItem, ResultCreated>,
-    demandRunner: DemandRunner
+    demandRunner: DemandRunner,
 ): Express {
 
     const app = express();
@@ -160,7 +193,7 @@ getLookupOid(pool)
             persistence,
             serviceInformation,
             queue,
-            getDemandRunner(pool, lookupOid)
+            getDemandRunner(pool, lookupOid),
         );
 
         app.listen(process.env.LISTEN_PORT, () => {

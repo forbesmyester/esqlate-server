@@ -154,17 +154,17 @@ curl http:/localhost:8803/result/customer_search/Uz9rkntC9reP
 ```json
 {
   "fields": [
-    { "field_name": "customer_id", "field_type": "bpchar" },
-    { "field_name": "company_name", "field_type": "varchar" },
-    { "field_name": "contact_name", "field_type": "varchar" },
-    { "field_name": "contact_title", "field_type": "varchar" },
-    { "field_name": "address", "field_type": "varchar" },
-    { "field_name": "city", "field_type": "varchar" },
-    { "field_name": "region", "field_type": "varchar" },
-    { "field_name": "postal_code", "field_type": "varchar" },
-    { "field_name": "country", "field_type": "varchar" },
-    { "field_name": "phone", "field_type": "varchar" },
-    { "field_name": "fax", "field_type": "varchar" }
+    { "name": "customer_id", "type": "bpchar" },
+    { "name": "company_name", "type": "varchar" },
+    { "name": "contact_name", "type": "varchar" },
+    { "name": "contact_title", "type": "varchar" },
+    { "name": "address", "type": "varchar" },
+    { "name": "city", "type": "varchar" },
+    { "name": "region", "type": "varchar" },
+    { "name": "postal_code", "type": "varchar" },
+    { "name": "country", "type": "varchar" },
+    { "name": "phone", "type": "varchar" },
+    { "name": "fax", "type": "varchar" }
   ],
   "rows": [
     [

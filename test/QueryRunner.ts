@@ -1,5 +1,5 @@
 import test from 'tape';
-import { EsqlateRequestCreationParameter, EsqlateResult, EsqlateStatementNormalized } from "esqlate-lib";
+import { EsqlateArgument, EsqlateResult, EsqlateStatementNormalized } from "esqlate-lib";
 import { format, getQuery, pgQuery, PgQuery } from '../src/QueryRunner';
 import { EsqlateErrorSqlExecution } from "../src/logger";
 import { QueryResult } from "pg";
@@ -14,12 +14,12 @@ test('getQuery', (assert) => {
         FROM customers
         INNER JOIN credit ON credit.customer_id = customer.id
             WHERE credit.amount >= `,
-        { name: "amount", variable_type: "integer" },
+        { name: "amount", type: "integer" },
         ` AND sales_rep = `,
-        { name: "user_id", variable_type: "server" },
+        { name: "user_id", type: "server" },
     ];
-    const sp: EsqlateRequestCreationParameter = [{"field_name": "user_id", "field_value": "4fs6a3"}];
-    const p: EsqlateRequestCreationParameter = [{"field_name": "amount", "field_value": 4}];
+    const sp: EsqlateArgument[] = [{"name": "user_id", "value": "4fs6a3"}];
+    const p: EsqlateArgument[] = [{"name": "amount", "value": 4}];
     const r = getQuery(ns, sp, p);
 
     const expectedText: PgQuery["text"] =
@@ -87,8 +87,8 @@ test("format", (assert) => {
 
     const expected: EsqlateResult = {
         fields: [
-            { "field_name": "name", "field_type": "varchar" },
-            { "field_name": "birth", "field_type": "timestamptz" },
+            { "name": "name", "type": "varchar" },
+            { "name": "birth", "type": "timestamptz" },
         ],
         rows: [
             [ "Joe", "2019-09-12T17:15:07.237Z" ],
@@ -163,17 +163,17 @@ test('pgQuery', (assert) => {
             "insert into orders (customer_id, ref, total_credit, available_credit, sales_rep)\n  values (",
             {
                 name: "customer_id",
-                variable_type: "select",
+                type: "select",
                 statement: "select id, concat('id', ': ', name) as disp from customers",
                 display_field: "disp",
                 value_field: "id"
             },
             ", 'big $ person', ",
-            { name: "credit", variable_type: "integer" },
+            { name: "credit", type: "integer" },
             ", ",
-            { name: "credit", variable_type: "integer" },
+            { name: "credit", type: "integer" },
             ", ",
-            { name: "sales_rep", variable_type: "server" },
+            { name: "sales_rep", type: "server" },
             ")"
         ];
 

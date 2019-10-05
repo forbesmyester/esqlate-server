@@ -24,7 +24,7 @@
     "typescript": "^3.5.3"
   },
   "scripts": {
-    "test": "find test -type f | parallel ts-node {} && npm run-script build && npm run-script lint",
+    "test": "find test -type f | parallel -j 1 ts-node {} && npm run-script build && npm run-script lint",
     "build": "tsc",
     "build-doc": "seqdiag ./README-rest-diagram.seqdiag -f /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf -o README-rest-diagram.png && asciidoctor -r asciidoctor-diagram README.adoc",
     "lint": "tslint --project tsconfig.json",

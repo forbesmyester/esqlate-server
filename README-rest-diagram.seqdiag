@@ -7,22 +7,22 @@ seqdiag {
   s [label="server"];
 
   c -> s [label="GET: /definition/order"];
-  c <- s [label="200 OK",note="Response (Definition):\n \n1 | {\n2 |   \"title\": \"Create order\",\n3 |   \"statement\": \"INSERT INTO order (customer_id) VALUES ($customer_id)\n3|                 RETURNING order_id, customer_id\"\n4 |   \"variables\": [{\n5 |     \"name\": \"customer_id\",\n6 |     \"variable_type\": \"select\",\n7 |     \"statement\": \"list_customer\",\n8 |     \"display_field\": \"disp\",\n9 |     \"value_field\": \"id\"\n10|   }]\n11| }\n"]
+  c <- s [label="200 OK",note="Response (Definition):\n \n1 | {\n2 |   \"title\": \"Create order\",\n3 |   \"statement\": \"INSERT INTO order (customer_id) VALUES ($customer_id)\n4 |                 RETURNING order_id, customer_id\"\n5 |   \"parameters\": [{\n6 |     \"name\": \"customer_id\",\n7 |     \"type\": \"select\",\n8 |     \"statement\": \"list_customer\",\n9 |     \"display_field\": \"disp\",\n10|     \"value_field\": \"id\"\n11|   }]\n12| }\n"]
 
   c -> s [label="GET: /demand/list_customer"];
-  c <- s [label="200 OK", note="Response (Result):\n\n1❘ {\n2❘   \"fields\": [\n3|     { \"field_name\": \"customer_id\" , \"field_type\": \"integer\" },\n4|     { \"field_name\": \"name\" , \"field_type\": \"varchar\" }\n5|   ],\n6|   \"rows\": [[ 53, \"Fred\" ], [ 54, \"John\"], [ 57, \"Sam\"]]\n7| }"]
+  c <- s [label="200 OK", note="Response (Result):\n\n1❘ {\n2❘   \"fields\": [\n3|     { \"name\": \"customer_id\" , \"type\": \"integer\" },\n4|     { \"name\": \"name\" , \"type\": \"varchar\" }\n5|   ],\n6|   \"rows\": [[ 53, \"Fred\" ], [ 54, \"John\"], [ 57, \"Sam\"]]\n7| }"]
 
-  c -> s [label="POST: /request/order", note="Request (RequestCreationParameter):\n\n1| [ {\n2|   \"field_name\": \"customer_id\",\n3|   \"field_value\": 53 \n4| } ]"];
-  c <- s [label="202 ACCEPTED\nLocation: /request/order/82", note="Response (RequestCreation):\n\n1| {\n2|   \"location\": \"/request/order/82\"\n4| }"]
-
-  c -> s [label="GET: /request/order/82"]
-  c <- s [label="202 ACCEPTED", note="Response (Request):\n\n1| { \"status\": \"pending\" }"]
+  c -> s [label="POST: /request/order", note="Request (RequestCreation):\n\n1| { \n2|   \"arguments\": [ {\n3|     \"name\": \"customer_id\",\n4|     \"value\": 53 \n5|   } ] \n6| }"];
+  c <- s [label="301 Moved Permanently\nLocation: /request/order/82", note="Response:\n\n1| { \"location\": \"/request/order/82\" }"]
 
   c -> s [label="GET: /request/order/82"]
-  c <- s [label="301 OK\nLocation: /result/order/74", note="Response (Request):\n\n1| {\n2|   \"status\": \"complete\",\n3|   \"location\": \"/result/order/74\"\n4| }"]
+  c <- s [label="202 ACCEPTED", note="Request (Request):\n\n1| { \n2|    \"status\": \"pending\",\n3|    \"arguments\": [ {\n4|     \"name\": \"customer_id\",\n5|     \"value\": 53 \n6|   } ] \n7| }"];
+
+  c -> s [label="GET: /request/order/82"]
+  c <- s [label="301 Moved Permanently\nLocation: /result/order/74", note="Request (Request):\n\n1| { \n2|    \"status\": \"complete\",\n3|    \"location\": \"/result/order/74\"\n4|    \"arguments\": [ {\n5|     \"name\": \"customer_id\",\n6|     \"value\": 53 \n7|   } ] \n8| }"];
 
   c -> s [label="GET /result/order/74"]
-  c <- s [label="200 OK", note="Response (Result):\n\n1❘ {\n2❘   \"fields\": [\n3|     { \"field_name\": \"order_id\" , \"field_type\": \"integer\" },\n4|     { \"field_name\": \"customer_id\" , \"field_type\": \"integer\" }\n5|   ],\n6|   \"rows\": [[ 74, 53 ]]\n7| }"]
+  c <- s [label="200 OK", note="Response (Result):\n\n1❘ {\n2❘   \"fields\": [\n3|     { \"name\": \"order_id\" , \"type\": \"integer\" },\n4|     { \"name\": \"customer_id\" , \"type\": \"integer\" }\n5|   ],\n6|   \"rows\": [[ 74, 53 ]]\n7| }"]
 
 }
 

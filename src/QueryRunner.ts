@@ -2,7 +2,7 @@ import * as pg from "pg";
 import { FieldDef, QueryResult } from "pg";
 import randCryptoString from "random-crypto-string";
 
-import { EsqlateDefinition, EsqlateErrorResult, EsqlateRequestCreationParameter, EsqlateRequestCreationParameterItem, EsqlateResult, EsqlateStatementNormalized, EsqlateVariable, normalize } from "esqlate-lib";
+import { EsqlateArgument, EsqlateDefinition, EsqlateErrorResult, EsqlateParameter, EsqlateResult, EsqlateStatementNormalized, normalize } from "esqlate-lib";
 import { EsqlateQueueWorker } from "esqlate-queue";
 
 import {ResultId} from "./persistence";
@@ -27,15 +27,15 @@ export interface ResultCreated {
 export interface QueueItem {
     definition: EsqlateDefinition;
     requestId: string;
-    serverParameters: EsqlateRequestCreationParameter;
-    userParameters: EsqlateRequestCreationParameter;
+    serverParameters: EsqlateArgument[];
+    userParameters: EsqlateArgument[];
 }
 
 
 export type DemandRunner = (
     definition: EsqlateDefinition,
-    serverParameters: EsqlateRequestCreationParameter,
-    parameters: EsqlateRequestCreationParameter
+    serverParameters: EsqlateArgument[],
+    userParameters: EsqlateArgument[],
     ) => Promise<EsqlateResult>;
 
 
@@ -45,7 +45,7 @@ export function pgQuery(statement: EsqlateStatementNormalized, inputValues: {[k:
         knownValues: string[];
     }
 
-    function reducer(acc: PgQueryExtra, ed: string | EsqlateVariable): PgQueryExtra {
+    function reducer(acc: PgQueryExtra, ed: string | EsqlateParameter): PgQueryExtra {
 
         if (typeof ed === "string") {
             return {
@@ -80,17 +80,17 @@ export function pgQuery(statement: EsqlateStatementNormalized, inputValues: {[k:
 }
 
 
-export function getQuery(normalizedStatement: EsqlateStatementNormalized, serverParameters: EsqlateRequestCreationParameter, parameters: EsqlateRequestCreationParameter) {
+export function getQuery(normalizedStatement: EsqlateStatementNormalized, serverParameters: EsqlateArgument[], parameters: EsqlateArgument[]) {
 
-    function esqlateRequestCreationParameterToOb(acc: { [k: string]: any }, parameter: EsqlateRequestCreationParameterItem): { [k: string]: any } {
+    function esqlateRequestCreationParameterToOb(acc: { [k: string]: any }, parameter: EsqlateArgument): { [k: string]: any } {
         const merger: { [k: string]: any } = {};
-        merger[parameter.field_name] = parameter.field_value;
+        merger[parameter.name] = parameter.value;
         return { ...acc, ...merger };
     }
 
     const inputValues: { [k: string]: any } = serverParameters.reduce(
         esqlateRequestCreationParameterToOb,
-        parameters.reduce(
+        (parameters || []).reduce(
             esqlateRequestCreationParameterToOb,
             {},
         ),
@@ -104,12 +104,12 @@ export function format(dataTypeIDToName: (dataTypeID: Oid) => string, promiseRes
     function success(results: QueryResult): EsqlateResult {
         const fields = results.fields.map((f) => {
             return {
-                field_name: f.name,
-                field_type: dataTypeIDToName(f.dataTypeID),
+                name: f.name,
+                type: dataTypeIDToName(f.dataTypeID),
             };
         });
         const rows = results.rows.map((row) => {
-            return fields.map((fn) => row[fn.field_name]);
+            return fields.map((fn) => row[fn.name]);
         });
         return {
             fields,
@@ -174,14 +174,18 @@ export function getLookupOid(pool: pg.Pool) {
 
 export function getDemandRunner(pool: pg.Pool, lookupOid: (oid: number) => string): DemandRunner {
 
-    return async function demandRunner(definition: EsqlateDefinition, serverParameters: EsqlateRequestCreationParameter, parameters: EsqlateRequestCreationParameter) {
+    return async function demandRunner(
+        definition: EsqlateDefinition,
+        serverArguments: EsqlateArgument[],
+        userArguments: EsqlateArgument[],
+    ) {
 
         const normalized = normalize(
-            definition.variables,
+            definition.parameters,
             definition.statement,
         );
 
-        const qry = getQuery(normalized, serverParameters, parameters);
+        const qry = getQuery(normalized, serverArguments, userArguments);
 
         return await format(lookupOid, pool.query(qry));
 
@@ -199,7 +203,7 @@ export function getEsqlateQueueWorker(pool: pg.Pool, lookupOid: (oid: number) =>
         const result = await demandRunner(
             qi.definition,
             qi.serverParameters,
-            qi.userParameters
+            qi.userParameters,
         );
 
         const rand = await randCryptoString(4);
