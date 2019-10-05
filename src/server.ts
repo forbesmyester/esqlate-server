@@ -27,16 +27,22 @@ fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
     filenames.forEach((filename) => {
         const fp = path.join(DEFINITION_DIRECTORY, filename);
         fs.readFile(fp, { encoding: "utf8" }, (readFileErr, data) => {
+
             if (readFileErr) { logger(Level.FATAL, "STARTUP", `Could not read definition ${fp}`); }
             let json: EsqlateDefinition;
+
             try {
                 json = JSON.parse(data);
             } catch (e) {
                 logger(Level.FATAL, "STARTUP", `Could not unserialize definition ${fp}`);
                 return;
             }
-            const valid = ajvValidateDefinition(json);
 
+            if (json.name != filename.replace(/\.json$/, '')) {
+                logger(Level.FATAL, "STARTUP", `Definition ${fp} has different name to filename`);
+            }
+
+            const valid = ajvValidateDefinition(json);
             if (!valid) {
                 const errors = ajvValidateDefinition.errors;
                 logger(Level.FATAL, "STARTUP", `Definition ${fp} has errors ${JSON.stringify(errors)}`);
