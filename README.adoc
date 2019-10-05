@@ -89,7 +89,7 @@ Suppose you want to do something useful however, such as actually run the query:
 ```bash
 curl -v -H "Content-Type: application/json" \
     -X POST \
-    --data '[{ "field_name": "search_string", "field_value": "Simon" }]' \
+    --data '{"arguments": [{ "name": "search_string", "value": "Simon" }]}' \
     http://localhost:8803/request/customer_search
 ```
 
