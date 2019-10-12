@@ -9,7 +9,7 @@ import { EsqlateQueue } from "esqlate-queue";
 import randCryptoString from "random-crypto-string";
 
 import { EsqlateError, EsqlateErrorEnum, EsqlateErrorInvalidDefinition, EsqlateErrorInvalidRequestBody, EsqlateErrorInvalidRequestParameter, EsqlateErrorMissingDefinition, EsqlateErrorMissingLocal, EsqlateErrorMissingVariables, Level, Logger } from "./logger";
-import { Persistence } from "./persistence";
+import { safeId, safeDefinitionName, Persistence } from "./persistence";
 import { DemandRunner, QueueItem, ResultCreated } from "./QueryRunner";
 
 import * as schemaRequestCreation from "esqlate-lib/res/schema-request-creation.json";
@@ -59,26 +59,11 @@ export function captureRequestStart(req: Request, _res: Response, next: NextFunc
     next();
 }
 
-function safeRequestParameter(pathElement: string, pathValue: string) {
-    const r = "" + pathValue;
-    if (r.length > 512) {
-        throw new EsqlateErrorInvalidRequestParameter(`Parameter ${pathElement} is too long`);
-    }
-    if (!r.match(/^[a-zA-Z0-9_\-]+$/)) {
-        throw new EsqlateErrorInvalidRequestParameter(`Parameter ${pathElement} includes invalid characters ${r}`);
-    }
-    return r;
-
-}
-
 export function loadDefinition(req: Request, _res: Response, next: NextFunction) {
 
     assert(req.params.hasOwnProperty("definitionName"), "missing request param definitionName");
 
-    const definitionName: string = safeRequestParameter(
-        "definitionName",
-        req.params.definitionName,
-    );
+    const definitionName: string = safeDefinitionName(req.params.definitionName);
 
     fs.readFile(
         pathJoin(DEFINITION_DIRECTORY, definitionName + ".json"),
@@ -183,14 +168,8 @@ export function getRequest({ persistence, serviceInformation: { getApiRoot } }: 
 
         assert(req.params.hasOwnProperty("requestId"), "Missing request param requestId");
 
-        const definitionName = safeRequestParameter(
-            "definitionName",
-            req.params.definitionName,
-        );
-        const requestId = safeRequestParameter(
-            "requestId",
-            req.params.requestId,
-        );
+        const definitionName = safeDefinitionName(req.params.definitionName);
+        const requestId = safeId(req.params.requestId);
 
         persistence.getResultIdForRequest(definitionName, requestId)
             .then((resultId) => {
@@ -229,11 +208,6 @@ export function runDemand({ serverVariableRequester, serviceInformation: { getAp
         } catch (e) { return next(e); }
 
         const definition: EsqlateDefinition = getRequestLocalKey("definition", req);
-
-        const definitionName = safeRequestParameter(
-            "definitionName",
-            req.params.definitionName,
-        );
 
         // TODO: Pass in server args propertly
         demandRunner(definition, [], args)
@@ -277,10 +251,7 @@ function getVariables({ getApiRoot }: ServiceInformation, serverVariableRequeste
     assert(req.params.hasOwnProperty("definitionName"), "Missing request param definitionName");
 
     const definition: EsqlateDefinition = getRequestLocalKey("definition", req);
-    const definitionName = safeRequestParameter(
-        "definitionName",
-        req.params.definitionName,
-    );
+    const definitionName = safeDefinitionName(req.params.definitionName);
     const valid = ajvValidateRequestCreation(req.body);
 
     if (!valid) {
@@ -327,10 +298,7 @@ export function createRequest({ serverVariableRequester, persistence, queue, ser
         } catch (e) { return next(e); }
 
         const definition: EsqlateDefinition = getRequestLocalKey("definition", req);
-        const definitionName = safeRequestParameter(
-            "definitionName",
-            req.params.definitionName,
-        );
+        const definitionName = safeDefinitionName(req.params.definitionName);
 
         randCryptoString(8)
             .then((requestId) => {
@@ -370,14 +338,8 @@ export function getResult({ persistence }: NeedsPersistence) {
 
         assert(req.params.hasOwnProperty("resultId"), "Missing request param resultId");
 
-        const definitionName = safeRequestParameter(
-            "definitionName",
-            req.params.definitionName,
-        );
-        const resultId = safeRequestParameter(
-            "resultId",
-            req.params.resultId,
-        );
+        const definitionName = safeDefinitionName(req.params.definitionName);
+        const resultId = safeId(req.params.resultId);
 
         persistence.getResult(definitionName, resultId)
             .then((result: EsqlateResult) => {

@@ -41,8 +41,15 @@ export interface LoadedRequstFileData {
     requestFileData: RequestFileData;
 }
 
-function safePathElement(s: string) {
-    if (!("" + s).match(/^[\/[a-zA-Z0-9_]+$/)) {
+export function safeDefinitionName(s: string) {
+    if (!("" + s).match(/^_?[a-z][a-z0-9_]{0,99}$/)) {
+        throw new Error(`Path element '${s}' includes invalid characters`);
+    }
+    return ("" + s);
+}
+
+export function safeId(s: string) {
+    if (!("" + s).match(/^[a-zA-Z0-9_]{0,99}$/)) {
         throw new Error(`Path element '${s}' includes invalid characters`);
     }
     return ("" + s);
@@ -90,9 +97,9 @@ export class FilesystemPersistence implements Persistence {
 
         const filename = [
             this.storagePath,
-            safePathElement(definitionName),
-            safePathElement(requestId).substring(0, this.pathSeperator1),
-            safePathElement(requestId).substring(this.pathSeperator1),
+            safeDefinitionName(definitionName),
+            safeId(requestId).substring(0, this.pathSeperator1),
+            safeId(requestId).substring(this.pathSeperator1),
             "request.json",
         ];
 
@@ -145,9 +152,9 @@ export class FilesystemPersistence implements Persistence {
 
         const searchDirectory = join(
             this.storagePath,
-            safePathElement(definitionName),
-            safePathElement(requestId).substring(0, this.pathSeperator1),
-            safePathElement(requestId).substring(this.pathSeperator1),
+            safeDefinitionName(definitionName),
+            safeId(requestId).substring(0, this.pathSeperator1),
+            safeId(requestId).substring(this.pathSeperator1),
         );
 
         return new Promise((resolve, reject) => {
@@ -157,7 +164,7 @@ export class FilesystemPersistence implements Persistence {
 
                 resolve(items.reduce(
                     (acc: null | RequestId, item) => {
-                        const match = item.match(/([a-zA-Z0-9]+)\-result\.json$/);
+                        const match = item.match(/^([a-zA-Z0-9]{0,99})\-result\.json$/);
                         if (match) {
                             return requestId + match[1];
                         }
@@ -173,12 +180,12 @@ export class FilesystemPersistence implements Persistence {
 
     private getResultFilename(definitionName: string, resultId: string): string[] {
 
-        const myResultId = safePathElement(resultId);
+        const myResultId = safeId(resultId);
         assert(myResultId.length > this.pathSeperator2, "Result Ids must be at least 6 characters long");
 
         return [
             this.storagePath,
-            safePathElement(definitionName),
+            safeDefinitionName(definitionName),
             myResultId.substring(0, this.pathSeperator1),
             myResultId.substring(this.pathSeperator1, this.pathSeperator2),
             `${myResultId.substring(this.pathSeperator2)}-result.json`,
