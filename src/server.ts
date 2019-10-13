@@ -22,6 +22,8 @@ const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY as string;
 const ajv = new Ajv();
 const ajvValidateDefinition = ajv.compile(schemaDefinition);
 
+let definitionList: { name: string; title: string }[] = [];
+
 fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
     if (readDirErr) { logger(Level.FATAL, "STARTUP", "Could not list definition"); }
     filenames.forEach((filename) => {
@@ -41,6 +43,8 @@ fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
             if (json.name != filename.replace(/\.json$/, '')) {
                 logger(Level.FATAL, "STARTUP", `Definition ${fp} has different name to filename`);
             }
+
+            definitionList.push({ title: json.title, name: json.name });
 
             const valid = ajvValidateDefinition(json);
             if (!valid) {
@@ -102,6 +106,17 @@ function setupApp(
     const nwCaptureRequestStart = nextWrap(nextWrapDependencies, 1000, captureRequestStart);
     const nwCaptureRequestEnd = nextWrap(nextWrapDependencies, 1000, getCaptureRequestEnd(logger));
     const nwLoadDefinition = nextWrap(nextWrapDependencies, 1000, loadDefinition);
+
+    app.get(
+        "/",
+        nwCaptureRequestStart,
+        nextWrap(nextWrapDependencies, 1000, (_req, res, next) => {
+            res.json(definitionList);
+            next();
+        }),
+        nwCaptureRequestEnd,
+        getCaptureRequestErrorHandler(logger),
+    );
 
     app.get(
         "/definition/:definitionName",
