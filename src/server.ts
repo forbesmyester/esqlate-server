@@ -17,6 +17,18 @@ import nextWrap, { NextWrapDependencies } from "./nextWrap";
 import { FilesystemPersistence, Persistence } from "./persistence";
 import { DemandRunner, getDemandRunner, getEsqlateQueueWorker, getLookupOid, QueueItem, ResultCreated } from "./QueryRunner";
 
+if (!process.env.hasOwnProperty("ADVERTISED_API_ROOT")) {
+    logger(Level.FATAL, "STARTUP", "no ADVERTISED_API_ROOT environmental variable defined");
+}
+
+if (!process.env.hasOwnProperty("LISTEN_PORT")) {
+    logger(Level.FATAL, "STARTUP", "no LISTEN_PORT environmental variable defined");
+}
+
+if (!process.env.hasOwnProperty("DEFINITION_DIRECTORY")) {
+    logger(Level.FATAL, "STARTUP", "no DEFINITION_DIRECTORY environmental variable defined");
+}
+
 const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY as string;
 
 const ajv = new Ajv();
@@ -191,18 +203,6 @@ function setupApp(
 const pool = new Pool();
 getLookupOid(pool)
     .then((lookupOid) => {
-
-        if (!process.env.hasOwnProperty("ADVERTISED_API_ROOT")) {
-            logger(Level.FATAL, "STARTUP", "no ADVERTISED_API_ROOT environmental variable defined");
-        }
-
-        if (!process.env.hasOwnProperty("LISTEN_PORT")) {
-            logger(Level.FATAL, "STARTUP", "no LISTEN_PORT environmental variable defined");
-        }
-
-        if (!process.env.hasOwnProperty("DEFINITION_DIRECTORY")) {
-            logger(Level.FATAL, "STARTUP", "no DEFINITION_DIRECTORY environmental variable defined");
-        }
 
         const persistence = new FilesystemPersistence("persistence");
         const serviceInformation: ServiceInformation = {
