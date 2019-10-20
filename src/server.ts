@@ -120,7 +120,7 @@ function setupApp(
     const nwLoadDefinition = nextWrap(nextWrapDependencies, 1000, loadDefinition);
 
     app.get(
-        "/",
+        "/definition",
         nwCaptureRequestStart,
         nextWrap(nextWrapDependencies, 1000, (_req, res, next) => {
             res.json(definitionList);
