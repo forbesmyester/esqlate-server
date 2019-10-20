@@ -130,6 +130,8 @@ export function getCaptureRequestEnd(logger: Logger) {
         next();
     };
 }
+
+
 export function getDefinition(req: Request, res: Response, next: NextFunction) {
     res.json(getRequestLocalKey("definition", req));
     next();
