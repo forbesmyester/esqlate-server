@@ -36,13 +36,20 @@ const ajvValidateDefinition = ajv.compile(schemaDefinition);
 
 let definitionList: { name: string; title: string }[] = [];
 
+function hasNoStaticParams(def: EsqlateDefinition): boolean {
+    return !def.parameters.some((param) => param.type == "static");
+}
+
 fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
     if (readDirErr) { logger(Level.FATAL, "STARTUP", "Could not list definition"); }
     filenames.forEach((filename) => {
         const fp = path.join(DEFINITION_DIRECTORY, filename);
         fs.readFile(fp, { encoding: "utf8" }, (readFileErr, data) => {
 
-            if (readFileErr) { logger(Level.FATAL, "STARTUP", `Could not read definition ${fp}`); }
+            if (readFileErr) {
+                logger(Level.FATAL, "STARTUP", `Could not read definition ${fp}`);
+            }
+
             let json: EsqlateDefinition;
 
             try {
@@ -52,17 +59,20 @@ fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
                 return;
             }
 
-            if (json.name != filename.replace(/\.json$/, '')) {
-                logger(Level.FATAL, "STARTUP", `Definition ${fp} has different name to filename`);
-            }
-
-            definitionList.push({ title: json.title, name: json.name });
-
             const valid = ajvValidateDefinition(json);
             if (!valid) {
                 const errors = ajvValidateDefinition.errors;
                 logger(Level.FATAL, "STARTUP", `Definition ${fp} has errors ${JSON.stringify(errors)}`);
             }
+
+            if (json.name != filename.replace(/\.json$/, '')) {
+                logger(Level.FATAL, "STARTUP", `Definition ${fp} has different name to filename`);
+            }
+
+            if ((filename.substring(0, 1) != "_") && hasNoStaticParams(json)) {
+                definitionList.push({ title: json.title, name: json.name });
+            }
+
         });
     });
 });
