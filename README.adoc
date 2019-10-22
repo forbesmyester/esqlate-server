@@ -4,7 +4,7 @@
 
 Esqlate is an attempt to build a user interface that allows the quick creation of incredibly basic admin panels for people who can either read SQL, but who cannot necessarily write it or for people who wish to create a library of SQL operations / reports for a specific project.
 
-It aims to give a reasonable web interface which gives the user the ability to run queries while specifying the value of specific parameters (while other parameters will be restricted to the systems administrator).
+It aims to give a reasonable web interface giving the user the ability to run queries while specifying the value of specific parameters (while other parameters will be restricted to the systems administrator).
 
 ## Overall Data Flow
 
@@ -14,9 +14,9 @@ image:README-rest-diagram.png[]
 
 ### Starting a local, sample database.
 
-First you need a PostgreSQL database, My favourite way to get a locally running PostgreSQL server is to create a simple `docker-compose.yml` file per project:
+First you need a PostgreSQL database, My favourite way to get a locally running PostgreSQL server is to create a simple `docker-compose.yml` file per project, but you can go about this however you wish:
 
-```
+```bash
 echo '
 version: "3"
 services:
@@ -38,7 +38,19 @@ volumes:
 
 Then import a sample data set (in this case, Microsoft's Northwind dataset converted into PostgreSQL).
 
-    curl https://raw.githubusercontent.com/pthom/northwind_psql/5f9ba34aa1d980392685042037b0b1112d01bd32/northwind.sql | psql
+```bash
+export PGHOST=127.0.0.1
+export PGUSER=postres
+export PGPASSWORD=postgres
+export PGDATABASE=postgres
+curl https://raw.githubusercontent.com/pthom/northwind_psql/5f9ba34aa1d980392685042037b0b1112d01bd32/northwind.sql | psql
+
+# I Noticed that there were no `timestamp` / `timestamp with timezone` fields in
+# the whole database and I felt I needed to test this important type... so....
+echo "alter table orders add column order_timestamp timestamp" | psql
+echo "update orders set order_timestamp = concat(order_date, ' ', floor(random() * 24)::varchar, ':', floor(random() * 60)::varchar, ':', floor(random() * 60)::varchar)::timestamp" | psql
+echo "alter table orders drop column order_date" | psql
+```
 
 ### Create a definition for a query you wish to run
 
@@ -49,14 +61,16 @@ Next, create a definition file. These definition files are like templates for qu
 mkdir -p definition
 echo '
     {
-        "name": "customer_search",
+        "name": "customer_search_by_name_only",
         "title": "Customer Search",
         "description": "List customers using a substring search",
-        "variables": [{ "name": "search_string", "variable_type": "string" }],
+        "parameters": [{ "name": "search_string", "type": "string" }],
         "statement": "SELECT * FROM customers\nWHERE\n  LOWER(company_name) LIKE CONCAT('"'%'"', LOWER($search_string), '"'%'"') OR\n  LOWER(contact_name) LIKE CONCAT('"'%'"', LOWER($search_string), '"'%'"')"
-    }' > definition/customer_search.json
+    }' > definition/customer_search_by_name_only.json
 
 ```
+
+NOTE: There are more example definitions for the Northwind dataset in the link:./example_definition[./example_definition directory].
 
 ### Lastly start the service
 
@@ -80,7 +94,7 @@ npm start
 The most basic thing you can do is get a definition:
 
 ```bash
-curl -v http://localhost:8803/definition/customer_search
+curl -v http://localhost:8803/definition/customer_search_by_name_only
 ```
 
 
@@ -90,13 +104,13 @@ Suppose you want to do something useful however, such as actually run the query:
 curl -v -H "Content-Type: application/json" \
     -X POST \
     --data '{"arguments": [{ "name": "search_string", "value": "Simon" }]}' \
-    http://localhost:8803/request/customer_search
+    http://localhost:8803/request/customer_search_by_name_only
 ```
 
 The output of this will look similar to the following
 
 ```bash
-> POST /request/customer_search HTTP/1.1
+> POST /request/customer_search_by_name_only HTTP/1.1
 > Host: localhost:8803
 > User-Agent: curl/7.64.0
 > Accept: */*
@@ -107,27 +121,26 @@ The output of this will look similar to the following
 < HTTP/1.1 202 Accepted
 < X-Powered-By: Express
 < Access-Control-Allow-Origin: *
-< Location: /request/customer_search/oDzS9suv
+< Location: /request/customer_search_by_name_only/oDzS9suv
 < Content-Type: application/json; charset=utf-8
 < Content-Length: 48
 < ETag: W/"30-K4lHAC8iwpUSjSDR/g3P1KLFAUU"
 < Date: Tue, 24 Sep 2019 09:35:24 GMT
 < Connection: keep-alive
 <
-{"location":"http:/localhost:8803/request/customer_search/Uz9rkntC
+{"location":"http:/localhost:8803/request/customer_search_by_name_only/Uz9rkntC"}
 ```
-
 
 Using the above URL will allow you to monitor the request:
 
 ```bash
-curl -v http:/localhost:8803/request/customer_search/Uz9rkntC
+curl -v http:/localhost:8803/request/customer_search_by_name_only/Uz9rkntC
 ```
 
 It is likely that your request has already completed giving you the result below, but Esqlate is designed as a Queue based system so the system administrator has some degree of control how much load you wish to put on your PostgreSQL server. If it has not yet completed you will get the resonse  `{ "status": "pending" }` and will need to re-issue the request.
 
 ```bash
-> GET /request/customer_search/uQEnGH1z HTTP/1.1
+> GET /request/customer_search_by_name_only/uQEnGH1z HTTP/1.1
 > Host: localhost:8803
 > User-Agent: curl/7.64.0
 > Accept: */*
@@ -135,20 +148,20 @@ It is likely that your request has already completed giving you the result below
 < HTTP/1.1 301 Moved Permanently
 < X-Powered-By: Express
 < Access-Control-Allow-Origin: *
-< Location: http:/localhost:8803/result/customer_search/uQEnGH1zDLaT
+< Location: http:/localhost:8803/result/customer_search_by_name_only/uQEnGH1zDLaT
 < Content-Type: application/json; charset=utf-8
 < Content-Length: 91
 < ETag: W/"5b-3tdNMonceUSkJklVx8nakJZihfY"
 < Date: Tue, 24 Sep 2019 09:39:48 GMT
 < Connection: keep-alive
 <
-{"status":"complete","location":"http:/localhost:8803/result/customer_search/Uz9rkntC9reP"}
+{"status":"complete","location":"http:/localhost:8803/result/customer_search_by_name_only/Uz9rkntC9reP"}
 ```
 
 Now you know that the request is complete and the location of the final result, you can go ahead and simply get the result:
 
 ```bash
-curl http:/localhost:8803/result/customer_search/Uz9rkntC9reP
+curl http:/localhost:8803/result/customer_search_by_name_only/Uz9rkntC9reP
 ```
 
 ```json
@@ -196,4 +209,13 @@ curl http:/localhost:8803/result/customer_search/Uz9rkntC9reP
   ],
   "status": "complete"
 }
+```
+
+**Note:** If you wish to circumvent the Queue you can use the below which will give you immediate results:
+
+```bash
+curl -v -H "Content-Type: application/json" \
+    -X POST \
+    --data '{"arguments": [{ "name": "search_string", "value": "Simon" }]}' \
+    http://localhost:8803/demand/customer_search_by_name_only
 ```

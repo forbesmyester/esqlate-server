@@ -1,0 +1,24 @@
+{
+  "name": "_add_product_to_order",
+  "title": "Add product to order",
+  "description": "Add a product to an already existing order - NOT to be used for already shipped!",
+  "parameters": [
+    { "name": "customer_id", "type": "static" },
+    { "name": "order_id", "type": "static" },
+    {
+      "display_field": "product_name",
+      "definition": "product_search",
+      "value_field": "product_id",
+      "type": "popup",
+      "name": "product_id"
+    },
+    { "name": "unit_price", "type": "decimal", "decimal_places": 2 },
+    { "name": "quantity", "type": "integer" },
+    { "name": "discount", "type": "decimal", "decimal_places": 2  }
+  ],
+  "statement": "INSERT INTO order_details (order_id, product_id, unit_price, quantity, discount)\nVALUES ($order_id, $product_id, $unit_price, $quantity, $discount)\nRETURNING *",
+  "links": [
+    { "href": "#/order_details?customer_id=${customer_id}&order_id=${order_id}", "text": "Back to Order $order_id" }
+  ]
+}
+

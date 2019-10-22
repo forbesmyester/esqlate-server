@@ -1,0 +1,17 @@
+{
+  "name": "order_details",
+  "title": "Order Details",
+  "description": "Lists relevant information about an order",
+  "parameters": [
+    { "name": "customer_id", "type": "static" },
+    { "name": "order_id", "type": "integer" }
+  ],
+  "statement": "SELECT\n  orders.order_id,\n  order_timestamp,\n  required_date,\n  shipped_date,\n  CONCAT(products.product_id, ': ', product_name) AS product,\n  order_details.unit_price,\n  order_details.quantity,\n  order_details.discount\nFROM orders\nINNER JOIN order_details ON\n  order_details.order_id = orders.order_id\nINNER JOIN products ON\n  products.product_id = order_details.product_id\nWHERE\n  orders.order_id = $order_id",
+  "links": [
+    { "href": "#/customer_country_count", "text": "Back to Country List" },
+    { "href": "#/add_product_to_order?order_id=$order_id&customer_id=$customer_id", "text": "Add items to order $order_id" },
+    { "href": "#order_list/request?customer_id=${customer_id}", "text": "Back to order list for ${customer_id}" }
+  ]
+}
+
+

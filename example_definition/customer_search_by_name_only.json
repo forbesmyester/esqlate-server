@@ -1,0 +1,8 @@
+
+    {
+        "name": "customer_search_by_name_only",
+        "title": "Customer Search",
+        "description": "List customers using a substring search",
+        "parameters": [{ "name": "search_string", "type": "string" }],
+        "statement": "SELECT * FROM customers\nWHERE\n  LOWER(company_name) LIKE CONCAT('%', LOWER($search_string), '%') OR\n  LOWER(contact_name) LIKE CONCAT('%', LOWER($search_string), '%')"
+    }

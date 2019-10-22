@@ -1,0 +1,13 @@
+{
+  "name": "product_search",
+  "title": "Product Search",
+  "description": "List products that include a substring",
+  "parameters": [
+    {
+      "name": "search_string",
+      "type": "string",
+      "highlight_fields": ["product_name"]
+    }
+  ],
+  "statement": "SELECT\n  product_id,\n  product_name,\n  suppliers.company_name as supplier_name,\n  categories.category_name,\n  unit_price,\n  units_in_stock + units_on_order as available,\n  unit_price\nFROM products\nLEFT JOIN categories on categories.category_id = products.category_id\nLEFT JOIN suppliers on suppliers.supplier_id = products.supplier_id\nWHERE LOWER(product_name) LIKE CONCAT('%', LOWER($search_string), '%')"
+}
