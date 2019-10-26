@@ -16,6 +16,7 @@ import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureReq
 import nextWrap, { NextWrapDependencies } from "./nextWrap";
 import { FilesystemPersistence, Persistence } from "./persistence";
 import { DemandRunner, getDemandRunner, getEsqlateQueueWorker, getLookupOid, QueueItem, ResultCreated } from "./QueryRunner";
+import JSON5 from 'json5';
 
 if (!process.env.hasOwnProperty("ADVERTISED_API_ROOT")) {
     logger(Level.FATAL, "STARTUP", "no ADVERTISED_API_ROOT environmental variable defined");
@@ -53,7 +54,7 @@ fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
             let json: EsqlateDefinition;
 
             try {
-                json = JSON.parse(data);
+                json = JSON5.parse(data);
             } catch (e) {
                 logger(Level.FATAL, "STARTUP", `Could not unserialize definition ${fp}`);
                 return;
@@ -65,7 +66,7 @@ fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
                 logger(Level.FATAL, "STARTUP", `Definition ${fp} has errors ${JSON.stringify(errors)}`);
             }
 
-            if (json.name != filename.replace(/\.json$/, '')) {
+            if (json.name != filename.replace(/\.json5?$/, '')) {
                 logger(Level.FATAL, "STARTUP", `Definition ${fp} has different name to filename`);
             }
 

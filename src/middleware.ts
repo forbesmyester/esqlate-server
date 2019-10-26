@@ -2,6 +2,7 @@ import assert = require("assert");
 import { NextFunction, Request, Response } from "express";
 import fs from "fs";
 import { join as pathJoin } from "path";
+import JSON5 from "json5";
 
 import Ajv from "ajv";
 import { EsqlateArgument, EsqlateDefinition, EsqlateRequestCreation, EsqlateResult } from "esqlate-lib";
@@ -65,23 +66,36 @@ export function loadDefinition(req: Request, _res: Response, next: NextFunction)
 
     const definitionName: string = safeDefinitionName(req.params.definitionName);
 
+    let errCount = 0;
+
+    function process(err: any, data: string) {
+        if (errCount == -1) { return; }
+        if ((err) && (errCount++ > 0)) {
+            return next(new EsqlateErrorMissingDefinition(`${definitionName}`));
+        }
+        if (err) { return errCount = errCount + 1; }
+            let j: EsqlateDefinition;
+        try {
+            j = JSON5.parse(data);
+        } catch (e) {
+            return next(new EsqlateErrorInvalidDefinition(`${definitionName}`));
+        }
+        setRequestLocal(req, "definition", j);
+        next();
+    }
+
+
+    fs.readFile(
+        pathJoin(DEFINITION_DIRECTORY, definitionName + ".json5"),
+        { encoding: 'utf8' },
+        process
+    )
     fs.readFile(
         pathJoin(DEFINITION_DIRECTORY, definitionName + ".json"),
-        { encoding: "utf8" },
-        (err, data) => {
-            if (err) {
-                return next(new EsqlateErrorMissingDefinition(`${definitionName}`));
-            }
-            let j: EsqlateDefinition;
-            try {
-                j = JSON.parse(data);
-            } catch (e) {
-                return next(new EsqlateErrorInvalidDefinition(`${definitionName}`));
-            }
-            setRequestLocal(req, "definition", j);
-            next();
-        },
-    );
+        { encoding: 'utf8' },
+        process
+    )
+
 }
 
 function logError(logger: Logger, err: Error) {
