@@ -1,6 +1,6 @@
 {
   "name": "order_list",
-  "title": "Order List",
+  "title": "Order list",
   "description": "A list of  orders by customer",
   "parameters": [
     {

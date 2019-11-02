@@ -1,6 +1,6 @@
 {
   "name": "customer_search",
-  "title": "Customer Search",
+  "title": "Customer search",
   "description": "List customers using a substring search",
   "parameters": [
     { "name": "search_string", "type": "string" },

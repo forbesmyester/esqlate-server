@@ -1,0 +1,28 @@
+{
+  "name": "_delete_product_from_order",
+  "title": "Delete product from order",
+  "description": "Are you sure you want to delete that item?",
+  "parameters": [
+    { "name": "product_name", "type": "static" },
+    { "name": "customer_id", "type": "static" },
+    { "name": "customer_name", "type": "static" },
+    { "name": "order_id", "type": "integer", "highlight_fields": ["order_id"] },
+    { "name": "product_id", "type": "integer", "highlight_fields": ["order_id"] }
+  ],
+  "statement": "\
+    DELETE FROM order_details\n\
+    WHERE\n\
+      order_id = $order_id AND\n\
+      product_id = $product_id\n\
+    RETURNING *",
+  "links": [
+    { "href": "#/order_details/request?customer_id=${customer_id}&order_id=${order_id}", "text": "Cancel removing ${product_name} from ${customer_name}'s order $order_id" }
+  ],
+  "row_links": [
+    { "href": "#/order_details/request?customer_id=${customer_id}&order_id=${order_id}", "text": "${product_name} removed from order ${order_id}. Return to see remaining items" }
+  ],
+  "statement_type": "DELETE"
+}
+
+
+

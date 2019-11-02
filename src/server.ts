@@ -10,13 +10,13 @@ import { Pool } from "pg";
 import {EsqlateDefinition} from "esqlate-lib";
 import * as schemaDefinition from "esqlate-lib/res/schema-definition.json";
 import getEsqlateQueue from "esqlate-queue";
-import { EsqlateQueue, EsqlateQueueWorker } from "esqlate-queue";
+import { EsqlateQueue } from "esqlate-queue";
+import JSON5 from "json5";
 import logger, { Level } from "./logger";
 import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureRequestErrorHandler, getDefinition, getRequest, getResult, loadDefinition, outstandingRequestId, runDemand, ServerVariableRequester, ServiceInformation } from "./middleware";
 import nextWrap, { NextWrapDependencies } from "./nextWrap";
 import { FilesystemPersistence, Persistence } from "./persistence";
 import { DemandRunner, getDemandRunner, getEsqlateQueueWorker, getLookupOid, QueueItem, ResultCreated } from "./QueryRunner";
-import JSON5 from 'json5';
 
 if (!process.env.hasOwnProperty("ADVERTISED_API_ROOT")) {
     logger(Level.FATAL, "STARTUP", "no ADVERTISED_API_ROOT environmental variable defined");
@@ -35,10 +35,10 @@ const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY as string;
 const ajv = new Ajv();
 const ajvValidateDefinition = ajv.compile(schemaDefinition);
 
-let definitionList: { name: string; title: string }[] = [];
+const definitionList: Array<{ name: string; title: string }> = [];
 
 function hasNoStaticParams(def: EsqlateDefinition): boolean {
-    return !def.parameters.some((param) => param.type == "static");
+    return !def.parameters.some((param) => param.type === "static");
 }
 
 fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
@@ -66,11 +66,11 @@ fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
                 logger(Level.FATAL, "STARTUP", `Definition ${fp} has errors ${JSON.stringify(errors)}`);
             }
 
-            if (json.name != filename.replace(/\.json5?$/, '')) {
+            if (json.name !== filename.replace(/\.json5?$/, "")) {
                 logger(Level.FATAL, "STARTUP", `Definition ${fp} has different name to filename`);
             }
 
-            if ((filename.substring(0, 1) != "_") && hasNoStaticParams(json)) {
+            if ((filename.substring(0, 1) !== "_") && hasNoStaticParams(json)) {
                 definitionList.push({ title: json.title, name: json.name });
             }
 
@@ -80,12 +80,16 @@ fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
 
 
 async function writeResults(persistence: Persistence, queue: EsqlateQueue<QueueItem, ResultCreated>) {
-    for await (const rc of queue.results()) {
-        await persistence.createResult(
-            rc.definitionName,
-            rc.resultId,
-            rc.result,
-        );
+    try {
+        for await (const rc of queue.results()) {
+            await persistence.createResult(
+                rc.definitionName,
+                rc.resultId,
+                rc.result,
+            );
+        }
+    } catch (e) {
+        logger(Level.WARN, "QUEUE", e.message);
     }
 }
 
@@ -212,6 +216,16 @@ function setupApp(
 }
 
 const pool = new Pool();
+let connectionCount = 0;
+pool.on("connect", () => {
+    logger(Level.INFO, "DATABASE", `Database Connection Count Incremented: ${++connectionCount} Connections`);
+});
+pool.on("connect", () => {
+    logger(Level.INFO, "DATABASE", `Database Connection Count Decremented: ${--connectionCount} Connections`);
+});
+pool.on("error", (e) => {
+    logger(Level.FATAL, "DATABASE", `Database Error: ${e.message}`);
+});
 getLookupOid(pool)
     .then((lookupOid) => {
 

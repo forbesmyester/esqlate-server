@@ -1,6 +1,6 @@
 {
   "name": "order_list_by_time",
-  "title": "Order List By Time",
+  "title": "Order list by time",
   "description": "A list of  orders by time",
   "parameters": [
     {
@@ -24,7 +24,21 @@
       "name": "shipped_before"
     }
   ],
-  "statement": "SELECT\n  order_id,\n  customer_id,\n  CONCAT(first_name, ' ', last_name, ' (', country, ')') as employee,\n  order_timestamp,\n  required_date,\n  shipped_date\nFROM orders\nINNER JOIN employees ON employees.employee_id = orders.employee_id\nWHERE\n  order_timestamp >= ${order_after} AND\n  order_timestamp <= $order_before AND\n  shipped_date >= $shipped_after AND\n  shipped_date <= $shipped_before",
+  "statement": "\
+    SELECT\n\
+      order_id,\n\
+      customer_id,\n\
+      CONCAT(first_name, ' ', last_name, ' (', country, ')') as employee,\n\
+      order_timestamp,\n\
+      required_date,\n\
+      shipped_date\n\
+      FROM orders\n\
+    INNER JOIN employees ON employees.employee_id = orders.employee_id\n\
+    WHERE\n\
+      order_timestamp >= ${order_after} AND\n\
+      order_timestamp <= $order_before AND\n\
+      shipped_date >= $shipped_after AND\n\
+      shipped_date <= $shipped_before",
   "row_links": [
     { "href": "#order_details/request?order_id=${order_id}&customer_id=${customer_id}", "text": "See Order ${order_id}" }
   ]

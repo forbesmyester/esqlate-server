@@ -1,8 +1,7 @@
 import test from 'tape';
 import { EsqlateArgument, EsqlateResult, EsqlateStatementNormalized } from "esqlate-lib";
 import { format, getQuery, pgQuery, PgQuery } from '../src/QueryRunner';
-import { EsqlateErrorSqlExecution } from "../src/logger";
-import { QueryResult } from "pg";
+import { QueryArrayResult, QueryResult } from "pg";
 
 test('getQuery', (assert) => {
     assert.plan(1);
@@ -54,11 +53,11 @@ test("format", (assert) => {
         throw new Error(`Unexpected dataTypeID ${dataTypeID}`);
     }
 
-    const sqlResult: Promise<QueryResult> = Promise.resolve({
+    const sqlResult: Promise<QueryArrayResult> = Promise.resolve({
         rows: [
-            { birth: "2019-09-12T17:15:07.237Z", name: "Joe" },
-            { birth: "2019-08-21T02:33:5l.426Z", name: "Jack" },
-            { name: "Jane", birth: "2018-09-13T12:11:28.352Z" },
+            [ "Joe",  "2019-09-12T17:15:07.237Z" ],
+            [ "Jack", "2019-08-21T02:33:5l.426Z" ],
+            [ "Jane", "2018-09-13T12:11:28.352Z" ],
         ],
         command: "SELECT",
         rowCount: 2,
@@ -164,7 +163,7 @@ test('pgQuery', (assert) => {
             {
                 name: "customer_id",
                 type: "select",
-                statement: "select id, concat('id', ': ', name) as disp from customers",
+                definition: "_get_customers",
                 display_field: "disp",
                 value_field: "id"
             },

@@ -4,6 +4,7 @@
   "description": "Add a product to an already existing order - NOT to be used for already shipped!",
   "parameters": [
     { "name": "customer_id", "type": "static" },
+    { "name": "customer_name", "type": "static" },
     { "name": "order_id", "type": "static" },
     {
       "display_field": "product_name",
@@ -12,13 +13,17 @@
       "type": "popup",
       "name": "product_id"
     },
-    { "name": "unit_price", "type": "decimal", "decimal_places": 2 },
-    { "name": "quantity", "type": "integer" },
-    { "name": "discount", "type": "decimal", "decimal_places": 2  }
+    { "name": "unit_price", "type": "decimal", "decimal_places": 2, "highlight_fields": ["unit_price"] },
+    { "name": "quantity", "type": "integer", "highlight_fields": ["quantity"] },
+    { "name": "discount", "type": "decimal", "decimal_places": 2, "highlight_fields": ["discount"]  }
   ],
   "statement": "INSERT INTO order_details (order_id, product_id, unit_price, quantity, discount)\nVALUES ($order_id, $product_id, $unit_price, $quantity, $discount)\nRETURNING *",
   "links": [
-    { "href": "#/order_details?customer_id=${customer_id}&order_id=${order_id}", "text": "Back to Order $order_id" }
-  ]
+    { "href": "#/order_details/request?customer_id=${customer_id}&order_id=${order_id}", "text": "Cancel adding items to order $order_id" }
+  ],
+  "row_links": [
+    { "href": "#/order_details/request?customer_id=${customer_id}&order_id=${order_id}", "text": "Item added to order ${order_id}. Click to return" }
+  ],
+  "statement_type": "INSERT"
 }
 

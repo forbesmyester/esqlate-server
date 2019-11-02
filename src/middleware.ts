@@ -1,16 +1,16 @@
 import assert = require("assert");
 import { NextFunction, Request, Response } from "express";
 import fs from "fs";
-import { join as pathJoin } from "path";
 import JSON5 from "json5";
+import { join as pathJoin } from "path";
 
 import Ajv from "ajv";
 import { EsqlateArgument, EsqlateDefinition, EsqlateRequestCreation, EsqlateResult } from "esqlate-lib";
 import { EsqlateQueue } from "esqlate-queue";
 import randCryptoString from "random-crypto-string";
 
-import { EsqlateError, EsqlateErrorEnum, EsqlateErrorInvalidDefinition, EsqlateErrorInvalidRequestBody, EsqlateErrorInvalidRequestParameter, EsqlateErrorMissingDefinition, EsqlateErrorMissingLocal, EsqlateErrorMissingVariables, Level, Logger } from "./logger";
-import { safeId, safeDefinitionName, Persistence } from "./persistence";
+import { EsqlateError, EsqlateErrorEnum, EsqlateErrorInvalidDefinition, EsqlateErrorInvalidRequestBody, EsqlateErrorMissingDefinition, EsqlateErrorMissingLocal, EsqlateErrorMissingVariables, Level, Logger } from "./logger";
+import { Persistence, safeDefinitionName, safeId } from "./persistence";
 import { DemandRunner, QueueItem, ResultCreated } from "./QueryRunner";
 
 import * as schemaRequestCreation from "esqlate-lib/res/schema-request-creation.json";
@@ -69,12 +69,12 @@ export function loadDefinition(req: Request, _res: Response, next: NextFunction)
     let errCount = 0;
 
     function process(err: any, data: string) {
-        if (errCount == -1) { return; }
+        if (errCount === -1) { return; }
         if ((err) && (errCount++ > 0)) {
             return next(new EsqlateErrorMissingDefinition(`${definitionName}`));
         }
         if (err) { return errCount = errCount + 1; }
-            let j: EsqlateDefinition;
+        let j: EsqlateDefinition;
         try {
             j = JSON5.parse(data);
         } catch (e) {
@@ -87,14 +87,14 @@ export function loadDefinition(req: Request, _res: Response, next: NextFunction)
 
     fs.readFile(
         pathJoin(DEFINITION_DIRECTORY, definitionName + ".json5"),
-        { encoding: 'utf8' },
-        process
-    )
+        { encoding: "utf8" },
+        process,
+    );
     fs.readFile(
         pathJoin(DEFINITION_DIRECTORY, definitionName + ".json"),
-        { encoding: 'utf8' },
-        process
-    )
+        { encoding: "utf8" },
+        process,
+    );
 
 }
 

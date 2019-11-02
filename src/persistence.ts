@@ -1,11 +1,14 @@
-import { EsqlateArgument, EsqlateDefinition, EsqlateResult } from "esqlate-lib";
+import { EsqlateArgument, EsqlateCompleteResult, EsqlateDefinition, EsqlateResult } from "esqlate-lib";
 import { EsqlateErrorNotFoundPersistence } from "./logger";
 
 
 import assert from "assert";
-import { mkdir, readdir, readFile, rename, writeFile } from "fs";
-import { promises as fsPromises } from "fs";
+import {  close as fsClose, mkdir, open as fsOpen, promises as fsPromises, readdir, readFile, rename,  write as fsWrite, writeFile } from "fs";
+import * as json2csv from "json2csv";
 import { join } from "path";
+
+import { DatabaseCursorResult } from "./QueryRunner";
+// import * as csv from "csv-write-stream";
 
 const { readdir: readdirP } = fsPromises;
 
@@ -25,7 +28,7 @@ export interface Persistence {
     createResult(
         definitionName: EsqlateDefinition["name"],
         resultId: ResultId,
-        values: EsqlateResult): Promise<ResultId>;
+        values: () => AsyncIterableIterator<DatabaseCursorResult>): Promise<ResultId>;
 }
 
 export type RequestId = string;
@@ -72,19 +75,59 @@ export class FilesystemPersistence implements Persistence {
     }
 
 
-    public createResult(
+    public async createResult(
             definitionName: EsqlateDefinition["name"],
             resultId: ResultId,
-            values: EsqlateResult): Promise<ResultId> {
+            stream: () => AsyncIterableIterator<DatabaseCursorResult>): Promise<ResultId> {
 
-        const resultFilename = this.getResultFilename(definitionName, resultId);
+        let json: EsqlateCompleteResult = {
+            fields: [],
+            rows: [],
+            complete_data_set: true,
+            status: "complete",
+        };
 
-        return new Promise((resolve, reject) => {
-            return this.mkFile("", resultFilename, values, (err) => {
-                if (err) { return reject(err); }
-                resolve(resultId);
-            });
-        });
+        const csvFilename = join.apply(
+            null,
+            this.getResultFilename(definitionName, resultId),
+        ).replace(/\.json$/, ".csv.incomplete");
+
+        const csvFileHandle: number = await this.openFile(csvFilename);
+        try {
+
+            for await (const value of stream()) {
+
+                const toWrite = [...value.rows];
+                if (!json.rows.length) {
+                    const data = value.fields.map(({name}) => name);
+                    toWrite.unshift(data);
+                }
+                await this.writeFile(
+                    csvFileHandle,
+                    json2csv.parse(toWrite, { header: false, eol: "\r\n" }) + "\r\n",
+                );
+
+                // On the first, record the first value with complete_data_set = true
+                // On anything other than first loop, just set complete_data_set = false
+                json = json.rows.length ?
+                    {...json, complete_data_set: false } :
+                    {...json, ...value, complete_data_set: true };
+            }
+
+        } catch (e) {
+            await this.closeFile(csvFileHandle);
+            throw e;
+        }
+
+        return this.closeFile(csvFileHandle).then(
+            () => {
+                return Promise.all([
+                    this.renameFile(csvFilename, csvFilename.replace(/\.incomplete$/, "")),
+                    this.createJson(definitionName, resultId, json),
+                ]);
+            })
+            .then(() => resultId);
+
     }
 
 
@@ -206,6 +249,16 @@ export class FilesystemPersistence implements Persistence {
     }
 
 
+    private renameFile(src: string, dst: string): Promise<null> {
+        return new Promise((resolve, reject) => {
+            rename(src, dst, (renameErr) => {
+                if (renameErr) { return reject(renameErr); }
+                resolve(null);
+            });
+        });
+    }
+
+
     private mkFile(pre: string, [current, ...paths]: string[], data: any, next: (err?: Error) => void): void {
         if (paths.length) {
             return mkdir(join(pre, current), (err) => {
@@ -220,6 +273,58 @@ export class FilesystemPersistence implements Persistence {
         }
         this.atomicWrite(pre, current, data, next);
     }
+
+
+    private createJson(
+        definitionName: EsqlateDefinition["name"],
+        resultId: ResultId,
+        value: EsqlateCompleteResult,
+    ): Promise<string> {
+
+        const resultFilename = this.getResultFilename(definitionName, resultId);
+
+        return new Promise((resolve, reject) => {
+            try {
+                return this.mkFile("", resultFilename, value, (err) => {
+                    if (err) { return reject(err); }
+                    resolve(resultId);
+                });
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+
+    private closeFile(fh: number): Promise<null> {
+        return new Promise((resolve, reject) => {
+            fsClose(fh, (err) => {
+                if (err) { return reject(err); }
+                resolve(null);
+            });
+        });
+    }
+
+
+    private openFile(filename: string): Promise<number> {
+        return new Promise((resolve, reject) => {
+            fsOpen(filename, "w", (err, handle) => {
+                if (err) { return reject(err); }
+                resolve(handle);
+            });
+        });
+    }
+
+
+    private writeFile(fh: number, data: string): Promise<null> {
+        return new Promise((resolve, reject) => {
+            fsWrite(fh, data, (err) => {
+                if (err) { return reject(err); }
+                resolve(null);
+            });
+        });
+    }
+
 
 }
 
