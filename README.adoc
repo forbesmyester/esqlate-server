@@ -137,7 +137,7 @@ Using the above URL will allow you to monitor the request:
 curl -v http:/localhost:8803/request/customer_search_by_name_only/Uz9rkntC
 ```
 
-It is likely that your request has already completed giving you the result below, but Esqlate is designed as a Queue based system so the system administrator has some degree of control how much load you wish to put on your PostgreSQL server. If it has not yet completed you will get the resonse  `{ "status": "pending" }` and will need to re-issue the request.
+It is likely that your request has already `"complete",` or in `"preview"` (meaning the not all other formats are coomplete) giving you the result below. However Esqlate is designed as a Queue based system so the system administrator has some degree of control how much load you wish to put on your PostgreSQL server. If it is not yet complete or in preview you will get the resonse  `{ "status": "pending" }` and will need to re-issue the request.
 
 ```bash
 > GET /request/customer_search_by_name_only/uQEnGH1z HTTP/1.1
@@ -155,10 +155,10 @@ It is likely that your request has already completed giving you the result below
 < Date: Tue, 24 Sep 2019 09:39:48 GMT
 < Connection: keep-alive
 <
-{"status":"complete","location":"http:/localhost:8803/result/customer_search_by_name_only/Uz9rkntC9reP"}
+{"status":"preview","location":"http:/localhost:8803/result/customer_search_by_name_only/Uz9rkntC9reP"}
 ```
 
-Now you know that the request is complete and the location of the final result, you can go ahead and simply get the result:
+Now you know that the request is in `"preview"` or `"complete"` and the location to request the results:
 
 ```bash
 curl http:/localhost:8803/result/customer_search_by_name_only/Uz9rkntC9reP
@@ -207,11 +207,15 @@ curl http:/localhost:8803/result/customer_search_by_name_only/Uz9rkntC9reP
       "31 13 35 57"
     ]
   ],
+  "full_data_set": false,
+  "full_data_sets": [
+    { "type": "text/csv", "location": "http:/localhost:8803/result/customer_search_by_name_only/Uz9rkntC9reP.csv" }
+  ],
   "status": "complete"
 }
 ```
 
-**Note:** If you wish to circumvent the Queue you can use the below which will give you immediate results:
+**Note:** If you wish to circumvent the Queue you can use the below which will give you immediate and full results:
 
 ```bash
 curl -v -H "Content-Type: application/json" \

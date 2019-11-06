@@ -7,7 +7,7 @@ import randCryptoString from "random-crypto-string";
 const Cursor = require("pg-cursor");
 /* tslint:enable */
 
-import { EsqlateArgument, EsqlateCompleteResult, EsqlateDefinition, EsqlateErrorResult, EsqlateFieldDefinition, EsqlateParameter, EsqlateResult, EsqlateStatementNormalized, normalize } from "esqlate-lib";
+import { EsqlateArgument, EsqlateDefinition, EsqlateErrorResult, EsqlateFieldDefinition, EsqlateParameter, EsqlateResult, EsqlateStatementNormalized, EsqlateSuccessResult, normalize } from "esqlate-lib";
 import { EsqlateQueueWorker } from "esqlate-queue";
 
 import {ResultId} from "./persistence";
@@ -117,7 +117,7 @@ export function getQuery(normalizedStatement: EsqlateStatementNormalized, server
     return pgQuery(normalizedStatement, inputValues);
 }
 
-function queryResultToEsqlateResult(dataTypeIDToName: (dataTypeID: Oid) => string, results: QueryArrayResult): EsqlateCompleteResult {
+function queryResultToEsqlateResult(dataTypeIDToName: (dataTypeID: Oid) => string, results: QueryArrayResult): EsqlateSuccessResult {
     const fields = results.fields.map((f) => {
         return {
             name: f.name,

@@ -13,7 +13,7 @@ import getEsqlateQueue from "esqlate-queue";
 import { EsqlateQueue } from "esqlate-queue";
 import JSON5 from "json5";
 import logger, { Level } from "./logger";
-import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureRequestErrorHandler, getDefinition, getRequest, getResult, loadDefinition, outstandingRequestId, runDemand, ServerVariableRequester, ServiceInformation } from "./middleware";
+import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureRequestErrorHandler, getDefinition, getRequest, getResult, loadDefinition, outstandingRequestId, runDemand, ServerVariableRequester, ServiceInformation, getResultCsv } from "./middleware";
 import nextWrap, { NextWrapDependencies } from "./nextWrap";
 import { FilesystemPersistence, Persistence } from "./persistence";
 import { DemandRunner, getDemandRunner, getEsqlateQueueWorker, getLookupOid, QueueItem, ResultCreated } from "./QueryRunner";
@@ -202,10 +202,24 @@ function setupApp(
 
 
     app.get(
-        "/result/:definitionName/:resultId",
+        "/result/:definitionName/:resultId.csv",
         nwCaptureRequestStart,
         nwLoadDefinition,
-        nextWrap(nextWrapDependencies, 1000, getResult({ persistence })),
+        nextWrap(nextWrapDependencies, 1000, getResultCsv({ persistence })),
+        nwCaptureRequestEnd,
+        getCaptureRequestErrorHandler(logger),
+    );
+
+
+    app.get(
+        "/result/:definitionName/:resultId",
+        (req: Request, _res: Response, next: NextFunction) => {
+            if (req.params && req.params.resultId.match(/\.csv$/,)) { return; }
+            next();
+        },
+        nwCaptureRequestStart,
+        nwLoadDefinition,
+        nextWrap(nextWrapDependencies, 1000, getResult({ persistence, serviceInformation })),
         nwCaptureRequestEnd,
         getCaptureRequestErrorHandler(logger),
     );

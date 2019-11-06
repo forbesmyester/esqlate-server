@@ -1,16 +1,14 @@
-import { EsqlateArgument, EsqlateCompleteResult, EsqlateDefinition, EsqlateResult } from "esqlate-lib";
-import { EsqlateErrorNotFoundPersistence } from "./logger";
+import { EsqlateArgument, EsqlateDefinition, EsqlateResult, EsqlateSuccessResult } from "esqlate-lib";
+import randCryptoString from "random-crypto-string";
 
+import { EsqlateErrorNotFoundPersistence } from "./logger";
+import { DatabaseCursorResult } from "./QueryRunner";
 
 import assert from "assert";
-import {  close as fsClose, mkdir, open as fsOpen, promises as fsPromises, readdir, readFile, rename,  write as fsWrite, writeFile } from "fs";
+import { access, createReadStream, close as fsClose, mkdir, open as fsOpen, readdir, readFile, rename,  write as fsWrite, writeFile, ReadStream } from "fs";
 import * as json2csv from "json2csv";
 import { join } from "path";
 
-import { DatabaseCursorResult } from "./QueryRunner";
-// import * as csv from "csv-write-stream";
-
-const { readdir: readdirP } = fsPromises;
 
 export enum ResultExistance {
     NOT_EXISTS = "pending",
@@ -29,6 +27,9 @@ export interface Persistence {
         definitionName: EsqlateDefinition["name"],
         resultId: ResultId,
         values: () => AsyncIterableIterator<DatabaseCursorResult>): Promise<ResultId>;
+    getResultCsvStream(
+        definitionName: EsqlateDefinition["name"],
+        resultId: ResultId): Promise<ReadStream>;
 }
 
 export type RequestId = string;
@@ -80,10 +81,10 @@ export class FilesystemPersistence implements Persistence {
             resultId: ResultId,
             stream: () => AsyncIterableIterator<DatabaseCursorResult>): Promise<ResultId> {
 
-        let json: EsqlateCompleteResult = {
+        let json: EsqlateSuccessResult = {
             fields: [],
             rows: [],
-            complete_data_set: true,
+            full_data_set: true,
             status: "complete",
         };
 
@@ -93,25 +94,28 @@ export class FilesystemPersistence implements Persistence {
         ).replace(/\.json$/, ".csv.incomplete");
 
         const csvFileHandle: number = await this.openFile(csvFilename);
+        let createJsonP: null | Promise<string> = null;
         try {
 
             for await (const value of stream()) {
 
                 const toWrite = [...value.rows];
                 if (!json.rows.length) {
-                    const data = value.fields.map(({name}) => name);
-                    toWrite.unshift(data);
+                    const csvHeaders = value.fields.map(({name}) => name);
+                    toWrite.unshift(csvHeaders);
+                    json = {...json, ...value, full_data_set: true };
+                } else {
+                    if (!createJsonP) {
+                        json = {...json, full_data_set: false };
+                        createJsonP = this.createJson(definitionName, resultId, json);
+                    }
                 }
+
                 await this.writeFile(
                     csvFileHandle,
                     json2csv.parse(toWrite, { header: false, eol: "\r\n" }) + "\r\n",
                 );
 
-                // On the first, record the first value with complete_data_set = true
-                // On anything other than first loop, just set complete_data_set = false
-                json = json.rows.length ?
-                    {...json, complete_data_set: false } :
-                    {...json, ...value, complete_data_set: true };
             }
 
         } catch (e) {
@@ -119,11 +123,14 @@ export class FilesystemPersistence implements Persistence {
             throw e;
         }
 
-        return this.closeFile(csvFileHandle).then(
-            () => {
+        return this.closeFile(csvFileHandle)
+            .then(() => {
                 return Promise.all([
-                    this.renameFile(csvFilename, csvFilename.replace(/\.incomplete$/, "")),
-                    this.createJson(definitionName, resultId, json),
+                    this.renameFile(
+                        csvFilename,
+                        csvFilename.replace(/\.incomplete$/, ""),
+                    ),
+                    createJsonP || this.createJson(definitionName, resultId, json),
                 ]);
             })
             .then(() => resultId);
@@ -159,26 +166,49 @@ export class FilesystemPersistence implements Persistence {
     }
 
 
+    public async getResultCsvStream(definitionName: EsqlateDefinition["name"], resultId: ResultId): Promise<ReadStream> {
+        const filename = join.apply(null, this.getResultFilename(definitionName, resultId));
+        const csvFilename = filename.replace(/\.json$/, ".csv");
+
+        const csvReadable = await this.access(csvFilename);
+        if (!csvReadable) {
+            throw new EsqlateErrorNotFoundPersistence(`Could not load result ${definitionName}/${resultId}`);
+        }
+        return createReadStream(csvFilename);
+    }
+
+
     public getResult(definitionName: EsqlateDefinition["name"], resultId: ResultId): Promise<EsqlateResult> {
-        return new Promise((resolve, reject) => {
-            const filename = join.apply(null, this.getResultFilename(definitionName, resultId));
-            readFile(filename, { encoding: "utf8" }, (err, data) => {
+        const filename = join.apply(null, this.getResultFilename(definitionName, resultId));
+        const csvFilename = filename.replace(/\.json$/, ".csv");
+
+        return Promise.all([this.readFile(filename), this.access(csvFilename)])
+            .then(([filedata, csvAvailable]: [string, boolean]) => {
+                const j = JSON.parse(filedata);
+                if (csvAvailable) {
+                    return {
+                        ...j,
+                        full_format_urls: [{
+                            type: "text/csv",
+                            location: csvFilename.replace(/.*\//, ""),
+                        }],
+                    };
+                }
+                return j;
+            })
+            .catch((err) => {
                 if ((err) && (err.code === "ENOENT")) {
-                    reject(new EsqlateErrorNotFoundPersistence(`Could not load result ${definitionName}/${resultId}`));
+                    throw new EsqlateErrorNotFoundPersistence(`Could not load result ${definitionName}/${resultId}`);
                 }
-                if (err) {
-                    return reject(err);
-                }
-                resolve(JSON.parse(data));
+                throw err;
             });
-        });
     }
 
 
     public async* outstandingRequestId() {
-        for (const defname of await readdirP(this.storagePath)) {
-            for (const reqIdP1 of await readdirP(join(this.storagePath, defname))) {
-                for (const reqIdP2 of await readdirP(join(this.storagePath, defname, reqIdP1))) {
+        for (const defname of await this.readdir(this.storagePath)) {
+            for (const reqIdP1 of await this.readdir(join(this.storagePath, defname))) {
+                for (const reqIdP2 of await this.readdir(join(this.storagePath, defname, reqIdP1))) {
                     const reqOb = await this.getResultIdForRequest(defname, reqIdP1 + reqIdP2);
                     if (reqOb) {
                         yield reqIdP1 + reqIdP2;
@@ -278,7 +308,7 @@ export class FilesystemPersistence implements Persistence {
     private createJson(
         definitionName: EsqlateDefinition["name"],
         resultId: ResultId,
-        value: EsqlateCompleteResult,
+        value: EsqlateSuccessResult,
     ): Promise<string> {
 
         const resultFilename = this.getResultFilename(definitionName, resultId);
@@ -321,6 +351,36 @@ export class FilesystemPersistence implements Persistence {
             fsWrite(fh, data, (err) => {
                 if (err) { return reject(err); }
                 resolve(null);
+            });
+        });
+    }
+
+
+    private readFile(s: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            readFile(s, { encoding: "utf8" }, (err, data) => {
+                if (err) { return reject(err); }
+                resolve(data);
+            });
+        });
+    }
+
+
+    private access(s: string): Promise<boolean> {
+        return new Promise((resolve) => {
+            access(s, (err) => {
+                if (err) { return resolve(false); }
+                resolve(true);
+            });
+        });
+    }
+
+
+    private readdir(s: string): Promise<string[]> {
+        return new Promise((resolve, reject) => {
+            readdir(s, (err, files) => {
+                if (err) { return reject(err); }
+                resolve(files);
             });
         });
     }

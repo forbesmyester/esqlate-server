@@ -1,11 +1,11 @@
 import assert = require("assert");
 import { NextFunction, Request, Response } from "express";
-import fs from "fs";
+import fs, {ReadStream} from "fs";
 import JSON5 from "json5";
 import { join as pathJoin } from "path";
 
 import Ajv from "ajv";
-import { EsqlateArgument, EsqlateDefinition, EsqlateRequestCreation, EsqlateResult } from "esqlate-lib";
+import { EsqlateArgument, EsqlateCompleteResultOtherFormat, EsqlateDefinition, EsqlateRequestCreation, EsqlateResult } from "esqlate-lib";
 import { EsqlateQueue } from "esqlate-queue";
 import randCryptoString from "random-crypto-string";
 
@@ -109,26 +109,28 @@ function logError(logger: Logger, err: Error) {
 export function getCaptureRequestErrorHandler(logger: Logger) {
     return function captureRequestErrorHandler(err: null | undefined | Error, _req: Request, res: Response, next: NextFunction) {
         if (err && (err instanceof EsqlateError)) {
-            logError(logger, err);
             switch (err.code) {
                 case EsqlateErrorEnum.InvalidRequestParameter:
                 case EsqlateErrorEnum.MissingVariable:
                 case EsqlateErrorEnum.InvalidRequestBody:
-                    res.status(422).json({ error: err.message });
-                    return next();
+                    res.status(422).json({ error: err.message }).end();
+                    return;
                 case EsqlateErrorEnum.NotFoundPersistenceError:
                 case EsqlateErrorEnum.MissingDefinition:
-                    res.status(404).json({ error: err.message });
-                    return next();
+                    res.status(404).json({ error: err.message }).end();
+                    return;
                 case EsqlateErrorEnum.MissingRequestParam:
                 case EsqlateErrorEnum.MissingLocal:
                 case EsqlateErrorEnum.InvalidDefinition:
                 default:
-                    res.status(500).json({ error: err.message });
-                    return next(err);
+                    res.status(500).json({ error: err.message }).end();
+                    return;
             }
         }
-        next(err);
+        if (err) {
+            logError(logger, err);
+            return;
+        }
     };
 }
 
@@ -347,7 +349,7 @@ export function createRequest({ serverVariableRequester, persistence, queue, ser
 }
 
 
-export function getResult({ persistence }: NeedsPersistence) {
+export function getResultCsv({ persistence }: NeedsPersistence) {
     return function getResultImpl(req: Request, res: Response, next: NextFunction) {
 
         assert(req.params.hasOwnProperty("definitionName"), "Missing request param definitionName");
@@ -355,12 +357,55 @@ export function getResult({ persistence }: NeedsPersistence) {
         assert(req.params.hasOwnProperty("resultId"), "Missing request param resultId");
 
         const definitionName = safeDefinitionName(req.params.definitionName);
+        const resultId = safeId(req.params.resultId.replace(/\.csv$/, ""));
+
+        persistence.getResultCsvStream(definitionName, resultId)
+            .then((readStream: ReadStream) => {
+                res.setHeader('content-type', 'text/csv');
+                res.setHeader('Content-disposition', `attachment; filename=${definitionName}-${resultId}.csv`);
+                const stream = readStream.pipe(res)
+                stream.on('finish', () => {
+                    res.end();
+                    return next();
+                });
+                stream.on('error', (err) => {
+                    res.send("WARNING: An error occurred during preperation of the CSV");
+                    return next(err);
+                });
+            })
+            .catch((err) => { next(err); });
+    };
+}
+
+export function getResult({ persistence, serviceInformation: { getApiRoot } }: NeedsPersistence & NeedsServiceInformation) {
+    return function getResultImpl(req: Request, res: Response, next: NextFunction) {
+
+        assert(req.params.hasOwnProperty("definitionName"), "Missing request param definitionName");
+        assert(req.params.hasOwnProperty("resultId"), "Missing request param resultId");
+
+        const definitionName = safeDefinitionName(req.params.definitionName);
         const resultId = safeId(req.params.resultId);
+
+        function mapper(otherFormat: EsqlateCompleteResultOtherFormat): EsqlateCompleteResultOtherFormat {
+            return {
+                ...otherFormat,
+                location: pathJoin(getApiRoot(req), "result", definitionName, resultId) + ".csv",
+            };
+        }
 
         persistence.getResult(definitionName, resultId)
             .then((result: EsqlateResult) => {
-                res.json(result);
-                next();
+                if (result.status === "error") {
+                    res.json(result);
+                    return next();
+                }
+                const mapped = {
+                    ...result,
+                    status: result.full_format_urls ? "complete" : "preview",
+                    full_format_urls: (result.full_format_urls || []).map(mapper),
+                };
+                res.json(mapped);
+                return next();
             })
             .catch((err) => { next(err); });
     };
