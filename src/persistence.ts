@@ -2,7 +2,7 @@ import { EsqlateArgument, EsqlateDefinition, EsqlateResult, EsqlateSuccessResult
 import randCryptoString from "random-crypto-string";
 
 import { EsqlateErrorNotFoundPersistence } from "./logger";
-import { DatabaseCursorResult } from "./QueryRunner";
+import { DatabaseCursorResult, getEsqlateErrorResult } from "./QueryRunner";
 
 import assert from "assert";
 import { access, createReadStream, close as fsClose, mkdir, open as fsOpen, readdir, readFile, rename,  write as fsWrite, writeFile, ReadStream } from "fs";
@@ -81,7 +81,7 @@ export class FilesystemPersistence implements Persistence {
             resultId: ResultId,
             stream: () => AsyncIterableIterator<DatabaseCursorResult>): Promise<ResultId> {
 
-        let json: EsqlateSuccessResult = {
+        let json: EsqlateResult = {
             fields: [],
             rows: [],
             full_data_set: true,
@@ -119,22 +119,24 @@ export class FilesystemPersistence implements Persistence {
             }
 
         } catch (e) {
-            await this.closeFile(csvFileHandle);
+            json = getEsqlateErrorResult(e);
             throw e;
+        } finally {
+            return this.closeFile(csvFileHandle)
+                .then(() => {
+                    return Promise.all([
+                        (json.status == "error") ?
+                            Promise.resolve(false) :
+                            this.renameFile(
+                                csvFilename,
+                                csvFilename.replace(/\.incomplete$/, ""),
+                            ),
+                        createJsonP || this.createJson(definitionName, resultId, json),
+                    ]);
+                })
+                .then(() => resultId);
+
         }
-
-        return this.closeFile(csvFileHandle)
-            .then(() => {
-                return Promise.all([
-                    this.renameFile(
-                        csvFilename,
-                        csvFilename.replace(/\.incomplete$/, ""),
-                    ),
-                    createJsonP || this.createJson(definitionName, resultId, json),
-                ]);
-            })
-            .then(() => resultId);
-
     }
 
 
@@ -308,7 +310,7 @@ export class FilesystemPersistence implements Persistence {
     private createJson(
         definitionName: EsqlateDefinition["name"],
         resultId: ResultId,
-        value: EsqlateSuccessResult,
+        value: EsqlateResult,
     ): Promise<string> {
 
         const resultFilename = this.getResultFilename(definitionName, resultId);

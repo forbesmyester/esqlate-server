@@ -132,39 +132,40 @@ function queryResultToEsqlateResult(dataTypeIDToName: (dataTypeID: Oid) => strin
 }
 
 
-export function format(dataTypeIDToName: (dataTypeID: Oid) => string, promiseResults: Promise<QueryArrayResult>): Promise<EsqlateResult> {
-
-    function fail(e: Error & any): EsqlateErrorResult {
-        let message = e.message + " - debugging information: ";
-        const keys = [
-            "severity",
-            "code",
-            "detail",
-            "hint",
-            "position",
-            "internalPosition",
-            "internalQuery",
-            "where",
-            "schema",
-            "table",
-            "column",
-            "dataType",
-            "constraint",
-        ];
-        const merge: {[k: string]: any} = {};
-        for (const k of keys) {
-            if (e[k]) {
-                merge[k] = e[k];
-            }
+export function getEsqlateErrorResult(e: Error & any): EsqlateErrorResult {
+    let message = e.message + " - debugging information: ";
+    const keys = [
+        "severity",
+        "code",
+        "detail",
+        "hint",
+        "position",
+        "internalPosition",
+        "internalQuery",
+        "where",
+        "schema",
+        "table",
+        "column",
+        "dataType",
+        "constraint",
+    ];
+    const merge: {[k: string]: any} = {};
+    for (const k of keys) {
+        if (e[k]) {
+            merge[k] = e[k];
         }
-        message = message + JSON.stringify(merge);
-        return { status: "error", message };
     }
+    message = message + JSON.stringify(merge);
+    return { status: "error", message };
+}
+
+
+export function format(dataTypeIDToName: (dataTypeID: Oid) => string, promiseResults: Promise<QueryArrayResult>): Promise<EsqlateResult> {
 
     return promiseResults
         .then(queryResultToEsqlateResult.bind(null, dataTypeIDToName))
         .catch((e) => {
-            return fail(e);
+            return getEsqlateErrorResult(e);
         });
 
 }
