@@ -3,9 +3,12 @@
   "title": "Customer search",
   "description": "List customers using a substring search",
   "parameters": [
-    { "name": "search_string", "type": "string" },
     {
-      "highlight_fields": ["contact_name", "company_name"],
+      "name": "search_string",
+      "type": "string",
+      "highlight_fields": ["contact_name", "company_name"]
+    },
+    {
       "display_field": "display",
       "name": "country",
       "type": "select",
