@@ -18,19 +18,11 @@ import nextWrap, { NextWrapDependencies } from "./nextWrap";
 import { FilesystemPersistence, Persistence } from "./persistence";
 import { DemandRunner, getDemandRunner, getEsqlateQueueWorker, getLookupOid, QueueItem, ResultCreated } from "./QueryRunner";
 
-if (!process.env.hasOwnProperty("ADVERTISED_API_ROOT")) {
-    logger(Level.FATAL, "STARTUP", "no ADVERTISED_API_ROOT environmental variable defined");
-}
-
 if (!process.env.hasOwnProperty("LISTEN_PORT")) {
     logger(Level.FATAL, "STARTUP", "no LISTEN_PORT environmental variable defined");
 }
 
-if (!process.env.hasOwnProperty("DEFINITION_DIRECTORY")) {
-    logger(Level.FATAL, "STARTUP", "no DEFINITION_DIRECTORY environmental variable defined");
-}
-
-const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY as string;
+const DEFINITION_DIRECTORY: string = (process.env.DEFINITION_DIRECTORY as string) || (__dirname + '/example_definition');
 
 const ajv = new Ajv();
 const ajvValidateDefinition = ajv.compile(schemaDefinition);
@@ -245,7 +237,9 @@ getLookupOid(pool)
 
         const persistence = new FilesystemPersistence("persistence");
         const serviceInformation: ServiceInformation = {
-            getApiRoot: () => "" + process.env.ADVERTISED_API_ROOT,
+            getApiRoot: (_req: Request) => {
+                return "/";
+            },
         };
         const queue = getEsqlateQueue(getEsqlateQueueWorker(pool, lookupOid));
 
