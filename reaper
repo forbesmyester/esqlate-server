@@ -1,0 +1,45 @@
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
+
+
+show_help() {
+    echo "${0}: Removes result sets when then have not been accessed for a time"
+    echo ""
+    echo "USAGE:"
+    echo "  $0 LOCATION AGE_BEFORE_CLEANING"
+    echo ""
+    echo "OPTIONS:"
+    echo "  LOCATION: DIRECTORY - The directory to reap files from"
+    echo "  AGE_BEFORE_CLEANING: INTEGER - How many days old the result set needs have"
+    echo "                                not been accessed before being removed"
+    echo ""
+}
+
+if [ $# -ne 2 ]; then
+    show_help
+    exit 1
+fi
+
+LOCATION=$1
+AGE_BEFORE_CLEANING_INPUT=$2
+
+AGE_BEFORE_CLEANING_RE='^[1-9][0-9]*$'
+if ! [[ $AGE_BEFORE_CLEANING_INPUT =~ $AGE_BEFORE_CLEANING_RE ]] ; then
+    echo ""
+    echo "ERROR: the age before cleaning must be a positive number"
+    echo ""
+    show_help
+    exit 1
+fi
+
+if [ ! -d "$LOCATION" ]; then
+    echo ""
+    echo "ERROR: the directory specified does not exist"
+    echo ""
+    show_help
+    exit 1
+fi
+
+AGE_BEFORE_CLEANING=$(("$AGE_BEFORE_CLEANING_INPUT" - 1))
+find "$LOCATION" -mindepth 2 -maxdepth 2 -mtime "+$AGE_BEFORE_CLEANING" -type d | parallel rm -rf {}
