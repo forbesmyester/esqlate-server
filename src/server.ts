@@ -22,7 +22,7 @@ if (!process.env.hasOwnProperty("LISTEN_PORT")) {
     logger(Level.FATAL, "STARTUP", "no LISTEN_PORT environmental variable defined");
 }
 
-const DEFINITION_DIRECTORY: string = (process.env.DEFINITION_DIRECTORY as string) || (__dirname + '/example_definition');
+const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY || (__dirname + '/example_definition');
 
 const ajv = new Ajv();
 const ajvValidateDefinition = ajv.compile(schemaDefinition);
