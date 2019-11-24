@@ -8,6 +8,7 @@
       "type": "string"
     }
   ],
+  "statement_type": "SELECT",
   "statement": "\
     SELECT\n\
       product_id,\n\

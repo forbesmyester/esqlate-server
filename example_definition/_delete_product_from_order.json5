@@ -5,18 +5,31 @@
   "parameters": [
     { "name": "product_name", "type": "static" },
     { "name": "customer_id", "type": "static" },
-    { "name": "customer_name", "type": "static" },
+    { "name": "customer_company_name", "type": "static" },
     { "name": "order_id", "type": "integer", "highlight_fields": ["order_id"] },
-    { "name": "product_id", "type": "integer", "highlight_fields": ["order_id"] }
+    { "name": "product_id", "type": "integer", "highlight_fields": ["product_id"] }
   ],
   "statement": "\
+    WITH details_of_delete AS (\n\
+      SELECT customers.customer_id, orders.order_id, products.product_id, products.product_name\n\
+      FROM orders\n\
+      INNER JOIN order_details ON order_details.order_id = orders.order_id\n\
+      INNER JOIN products ON products.product_id = order_details.product_id\n\
+      INNER JOIN customers ON customers.customer_id = orders.customer_id\n\
+      WHERE\n\
+        products.product_id = $product_id AND\n\
+        orders.order_id = $order_id AND\n\
+        products.product_name = $product_name AND\n\
+        customers.customer_id = $customer_id AND\n\
+        customers.company_name = $customer_company_name\n\
+    )\n\
     DELETE FROM order_details\n\
-    WHERE\n\
-      order_id = $order_id AND\n\
-      product_id = $product_id\n\
-    RETURNING *",
+    USING details_of_delete\n\
+    WHERE details_of_delete.order_id = order_details.order_id AND\n\
+      details_of_delete.product_id = order_details.product_id\n\
+    RETURNING details_of_delete.customer_id, order_details.order_id, details_of_delete.product_name",
   "links": [
-    { "href": "#/order_details/request?customer_id=${customer_id}&order_id=${order_id}", "text": "Cancel removing ${product_name} from ${customer_name}'s order $order_id" }
+    { "href": "#/order_details/request?customer_id=${customer_id}&order_id=${order_id}", "text": "Cancel adding items to order $order_id" }
   ],
   "row_links": [
     { "href": "#/order_details/request?customer_id=${customer_id}&order_id=${order_id}", "text": "${product_name} removed from order ${order_id}. Return to see remaining items" }

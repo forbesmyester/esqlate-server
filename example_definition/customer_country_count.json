@@ -3,6 +3,7 @@
   "title": "Customers per country",
   "description": "List of countries along with their customer count",
   "parameters": [],
+  "statement_type": "SELECT",
   "statement": "SELECT\n  concat(country, ' (', count(*), ')') as display,\n  country,\n  count(*) as count FROM customers\nGROUP BY country\nORDER BY country ASC",
   "row_links": [
     { "href": "#customer_search/request?country=${country}", "text": "Customers from ${country}" }

@@ -2,6 +2,7 @@
   "name": "order_list",
   "title": "Order list",
   "description": "A list of  orders by customer",
+  "statement_type": "SELECT",
   "parameters": [
     {
       "definition": "customer_search",
@@ -11,6 +12,7 @@
       "name": "customer_id"
     }
   ],
+  "statement_type": "SELECT",
   "statement": "SELECT\n  order_id,\n  customer_id,\n  concat(first_name, ' ', last_name, ' (', country, ')') as employee,\n  order_timestamp,\n  required_date,\n  shipped_date\nFROM orders\nINNER JOIN employees ON employees.employee_id = orders.employee_id\nWHERE customer_id = $customer_id",
   "row_links": [
     { "href": "#order_details/request?order_id=${order_id}&customer_id=${customer_id}", "text": "See Order ${order_id}" }

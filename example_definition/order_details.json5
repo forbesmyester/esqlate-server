@@ -11,7 +11,7 @@
       orders.order_id,\n\
       products.product_id,\n\
       customers.company_name as customer_name,\n\
-      order_timestamp,\n\
+      order_timestamp::DATE as order_date,\n\
       required_date,\n\
       shipped_date,\n\
       product_name,\n\
@@ -19,12 +19,9 @@
       order_details.quantity,\n\
       order_details.discount\n\
     FROM orders\n\
-    INNER JOIN order_details ON\n\
-      order_details.order_id = orders.order_id\n\
-    INNER JOIN products ON\n\
-      products.product_id = order_details.product_id\n\
-    INNER JOIN customers ON\n\
-      customers.customer_id = orders.customer_id\n\
+    INNER JOIN order_details ON order_details.order_id = orders.order_id\n\
+    INNER JOIN products ON products.product_id = order_details.product_id\n\
+    INNER JOIN customers ON customers.customer_id = orders.customer_id\n\
     WHERE orders.order_id = $order_id",
   "links": [
     { "href": "#/customer_country_count", "text": "Back to Country List" },
@@ -32,7 +29,7 @@
     { "href": "#/_add_product_to_order?order_id=$order_id&customer_id=$customer_id", "text": "Add items to order $order_id" },
   ],
   "row_links": [
-    { "href": "#_delete_product_from_order?order_id=${order_id}&product_name=${product_name}&customer_id=${customer_id}&customer_name=${customer_name}&product_id=${product_id}", "text": "Remove ${product_name}" }
+    { "href": "#_delete_product_from_order?order_id=${order_id}&product_name=${product_name}&customer_id=${customer_id}&customer_company_name=${customer_name}&product_id=${product_id}", "text": "Remove ${product_name}" }
   ],
   "statement_type": "SELECT"
 }

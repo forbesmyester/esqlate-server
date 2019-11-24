@@ -24,6 +24,7 @@
       "name": "shipped_before"
     }
   ],
+  "statement_type": "SELECT",
   "statement": "\
     SELECT\n\
       order_id,\n\

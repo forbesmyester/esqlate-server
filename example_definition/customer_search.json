@@ -2,6 +2,7 @@
   "name": "customer_search",
   "title": "Customer search",
   "description": "List customers using a substring search",
+  "statement_type": "SELECT",
   "parameters": [
     {
       "name": "search_string",

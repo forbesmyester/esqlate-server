@@ -8,5 +8,6 @@
     "type": "string",
     "highlight_fields": ["company_name", "contact_name"]
   }],
+  "statement_type": "SELECT",
   "statement": "SELECT * FROM customers\nWHERE\n  LOWER(company_name) LIKE CONCAT('%', LOWER($search_string), '%') OR\n  LOWER(contact_name) LIKE CONCAT('%', LOWER($search_string), '%')"
 }
