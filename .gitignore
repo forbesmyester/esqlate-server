@@ -10,3 +10,4 @@
 Gemfile.lock
 env.ndjson
 docker-compose.yml
+/definition
