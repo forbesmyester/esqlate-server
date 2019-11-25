@@ -1,0 +1,18 @@
+FROM node:12
+
+ENV TINI_VERSION v0.18.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+RUN chmod +x /tini
+ENTRYPOINT ["/tini", "--"]
+
+RUN apt-get update && apt-get -y upgrade && apt-get -y install parallel && apt-get clean
+
+# == Custom Below =============================================================
+
+ENV AGE_BEFORE_CLEANING "3"
+ENV LOCATION "./persistence"
+
+WORKDIR /esqlate-server
+COPY reaper ./
+
+CMD while true; do ./reaper "$LOCATION" "$AGE_BEFORE_CLEANING"; sleep 1800; done

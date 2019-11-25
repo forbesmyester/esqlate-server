@@ -1,0 +1,16 @@
+FROM postgres:12
+
+ENV TINI_VERSION v0.18.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+RUN chmod +x /tini
+ENTRYPOINT ["/tini", "--"]
+
+RUN apt-get update && apt-get -y upgrade && apt-get -y install curl && apt-get clean
+
+# == Custom Below =============================================================
+
+ADD https://raw.githubusercontent.com/forbesmyester/wait-for-pg/master/wait-for-pg ./
+COPY ./load-northwind-example-database ./
+
+CMD chmod +x ./wait-for-pg ./load-northwind-example-database && ./wait-for-pg && ./load-northwind-example-database
+

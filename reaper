@@ -42,4 +42,4 @@ if [ ! -d "$LOCATION" ]; then
 fi
 
 AGE_BEFORE_CLEANING=$(("$AGE_BEFORE_CLEANING_INPUT" - 1))
-find "$LOCATION" -mindepth 2 -maxdepth 2 -mtime "+$AGE_BEFORE_CLEANING" -type d | parallel rm -rf {}
+find "$LOCATION" -mindepth 2 -maxdepth 2 -atime "+$AGE_BEFORE_CLEANING" -type d | parallel rm -rf {}
