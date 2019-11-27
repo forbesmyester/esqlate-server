@@ -23,9 +23,11 @@
     INNER JOIN products ON products.product_id = order_details.product_id\n\
     INNER JOIN customers ON customers.customer_id = orders.customer_id\n\
     WHERE orders.order_id = $order_id",
-  "links": [
+  "top_links": [
     { "href": "#/customer_country_count", "text": "Back to Country List" },
     { "href": "#order_list/request?customer_id=${customer_id}", "text": "Back to order list for ${customer_id}" },
+  ],
+  "links": [
     { "href": "#/_add_product_to_order?order_id=$order_id&customer_id=$customer_id", "text": "Add items to order $order_id" },
   ],
   "row_links": [
