@@ -1,13 +1,13 @@
 {
   "name": "esqlate-server",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Server for the Esqlate project",
   "main": "index.js",
   "dependencies": {
     "ajv": "^6.10.2",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
-    "esqlate-lib": "^1.0.4",
+    "esqlate-lib": "^1.0.6",
     "esqlate-promise-returning-function-to-generator": "^1.0.0",
     "esqlate-queue": "^2.0.0",
     "express": "^4.17.1",
