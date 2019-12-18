@@ -7,7 +7,7 @@ export enum Level {
     "DEBUG" = "DEBUG",
 }
 
-export type Component = "REQTIME" | "STARTUP" | "UNKNOWN" | "QUEUE" | "DATABASE" | EsqlateErrorEnum;
+export type Component = "REQTIME" | "STARTUP" | "UNKNOWN" | "QUEUE" | "DATABASE" | "DEFINITION" | EsqlateErrorEnum;
 
 export type Logger = (level: Level, component: Component, message: string, err?: Error) => void;
 
