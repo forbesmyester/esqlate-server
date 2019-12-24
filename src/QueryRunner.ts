@@ -64,6 +64,13 @@ export function pgQuery(statement: EsqlateStatementNormalized, inputValues: {[k:
         knownValues: string[];
     }
 
+    function getSqlValue(p: EsqlateParameter) {
+        if (p.empty_string_is_null && (inputValues[p.name] == "")) {
+            return null;
+        }
+        return inputValues[p.name];
+    }
+
     function reducer(acc: PgQueryExtra, ed: string | EsqlateParameter): PgQueryExtra {
 
         if (typeof ed === "string") {
@@ -75,7 +82,7 @@ export function pgQuery(statement: EsqlateStatementNormalized, inputValues: {[k:
         }
 
         if (acc.knownValues.indexOf(ed.name) === -1) {
-            acc.values = acc.values.concat(inputValues[ed.name]);
+            acc.values = acc.values.concat(getSqlValue(ed));
             acc.knownValues = acc.knownValues.concat([ed.name]);
         }
 
