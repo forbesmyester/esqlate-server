@@ -224,3 +224,7 @@ curl -v -H "Content-Type: application/json" \
     --data '{"arguments": [{ "name": "search_string", "value": "Simon" }]}' \
     http://localhost:8803/demand/customer_search_by_name_only
 ```
+
+## License
+
+This project (all code in this repository) is listed under GPLv3 or later
