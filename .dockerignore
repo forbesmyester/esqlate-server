@@ -1,8 +1,7 @@
-env.json
+env.ndjson
 .git
 node_modules
 vendor
 bin
-node_modules
 persistence
 Gemfile*
