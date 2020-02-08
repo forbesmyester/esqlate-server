@@ -286,6 +286,7 @@ $ curl -H "Content-Type: application/json" ${URL_ROOT}/result/shipper_search/FGA
  * 1.1.0 - Support added for multiple database support (MySQL)
  * 1.0.1 - Fix bug #9 - Unable to use a parameter named `user_id`
  * 1.1.1 - Merge #9 into 1.1
+ * 1.1.2 - Fix not releasing MySQL connections.
 
 ## License
 

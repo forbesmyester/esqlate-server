@@ -199,6 +199,7 @@ function getEsqlateQueueWorker(pool: Pool): EsqlateQueueWorker<QueueItem, Result
             });
 
             result.on("end", () => {
+                pool.releaseConnection(conn);
                 const r = buffer.concat([]);
                 buffer = [];
                 const x = resolve;
