@@ -271,6 +271,9 @@ export default function getQueryRunner(logger: Logger): Promise<DatabaseInterfac
         user: process.env.MYUSER,
         database: process.env.MYDATABASE,
         password: process.env.MYPASSWORD,
+        port: process.env.hasOwnProperty("MYPORT") ?
+            parseInt(process.env.MYPORT as string, 10) :
+            3306,
     });
     let connectionCount = 0;
     pool.on("acquire", () => {
