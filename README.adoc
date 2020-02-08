@@ -225,6 +225,12 @@ curl -v -H "Content-Type: application/json" \
     http://localhost:8803/demand/customer_search_by_name_only
 ```
 
+
+## Version History
+
+ * 1.0.0 - Initial Release
+ * 1.0.1 - Fix bug #9 - Unable to use a parameter named `user_id`
+
 ## License
 
 This project (all code in this repository) is listed under GPLv3 or later

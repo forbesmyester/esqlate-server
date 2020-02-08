@@ -165,10 +165,10 @@ async function writeResults(persistence: Persistence, queue: EsqlateQueue<QueueI
 
 const serverVariableRequester: ServerVariableRequester = {
     listServerVariable: (_req: Request) => {
-        return ["user_id"];
+        return [];
     },
     getServerVariable: (_req: Request, _name: string) => {
-        return 999;
+        return "";
     },
 };
 

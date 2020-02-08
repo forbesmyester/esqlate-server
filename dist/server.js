@@ -131,10 +131,10 @@ async function writeResults(persistence, queue) {
 }
 const serverVariableRequester = {
     listServerVariable: (_req) => {
-        return ["user_id"];
+        return [];
     },
     getServerVariable: (_req, _name) => {
-        return 999;
+        return "";
     },
 };
 function setupApp(persistence, serviceInformation, queue, demandRunner) {
