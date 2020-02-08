@@ -16,9 +16,7 @@ const cors_1 = __importDefault(require("cors"));
 const express_1 = __importDefault(require("express"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
-const pg_1 = require("pg");
 const schemaDefinition = __importStar(require("esqlate-lib/res/schema-definition.json"));
-const esqlate_queue_1 = __importDefault(require("esqlate-queue"));
 const json5_1 = __importDefault(require("json5"));
 const logger_1 = __importStar(require("./logger"));
 const middleware_1 = require("./middleware");
@@ -28,7 +26,7 @@ const QueryRunner_1 = require("./QueryRunner");
 if (!process.env.hasOwnProperty("LISTEN_PORT")) {
     logger_1.default(logger_1.Level.FATAL, "STARTUP", "no LISTEN_PORT environmental variable defined");
 }
-const DEFINITION_DIRECTORY = process.env.DEFINITION_DIRECTORY || (__dirname + '/example_definition');
+const DEFINITION_DIRECTORY = process.env.DEFINITION_DIRECTORY || (__dirname + "/example_definition");
 const ajv = new ajv_1.default();
 const ajvValidateDefinition = ajv.compile(schemaDefinition);
 const definitionMap = new Map();
@@ -177,27 +175,18 @@ function setupApp(persistence, serviceInformation, queue, demandRunner) {
     }, nwCaptureRequestStart, nwLoadDefinition, nextWrap_1.default(nextWrapDependencies, 1000, middleware_1.getResult({ persistence, serviceInformation })), nwCaptureRequestEnd, middleware_1.getCaptureRequestErrorHandler(logger_1.default));
     return app;
 }
-const pool = new pg_1.Pool();
-let connectionCount = 0;
-pool.on("connect", () => {
-    logger_1.default(logger_1.Level.INFO, "DATABASE", `Database Connection Count Incremented: ${++connectionCount} Connections`);
-});
-pool.on("connect", () => {
-    logger_1.default(logger_1.Level.INFO, "DATABASE", `Database Connection Count Decremented: ${--connectionCount} Connections`);
-});
-pool.on("error", (e) => {
-    logger_1.default(logger_1.Level.FATAL, "DATABASE", `Database Error: ${e.message}`);
-});
-QueryRunner_1.getLookupOid(pool)
-    .then((lookupOid) => {
+const databaseType = (process.env.hasOwnProperty("DATABASE_TYPE") &&
+    (("" + process.env.DATABASE_TYPE).toLowerCase() === "mysql")) ?
+    QueryRunner_1.DatabaseType.MySQL :
+    QueryRunner_1.DatabaseType.PostgreSQL;
+QueryRunner_1.getQueryRunner(databaseType, logger_1.default).then(({ queue, demand }) => {
     const persistence = new persistence_1.FilesystemPersistence("persistence");
     const serviceInformation = {
         getApiRoot: (_req) => {
             return "/";
         },
     };
-    const queue = esqlate_queue_1.default(QueryRunner_1.getEsqlateQueueWorker(pool, lookupOid));
-    const app = setupApp(persistence, serviceInformation, queue, QueryRunner_1.getDemandRunner(pool, lookupOid));
+    const app = setupApp(persistence, serviceInformation, queue, demand);
     app.listen(process.env.LISTEN_PORT, () => {
         logger_1.default(logger_1.Level.INFO, "STARTUP", "eslate-server listening on " + process.env.LISTEN_PORT);
     });

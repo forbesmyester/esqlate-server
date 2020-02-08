@@ -11,7 +11,6 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const logger_1 = require("./logger");
-const QueryRunner_1 = require("./QueryRunner");
 const assert_1 = __importDefault(require("assert"));
 const fs_1 = require("fs");
 const json2csv = __importStar(require("json2csv"));
@@ -77,21 +76,18 @@ class FilesystemPersistence {
             }
         }
         catch (e) {
-            json = QueryRunner_1.getEsqlateErrorResult(e);
-            throw e;
+            json = e;
         }
-        finally {
-            return this.closeFile(csvFileHandle)
-                .then(() => {
-                return Promise.all([
-                    (json.status == "error") ?
-                        Promise.resolve(false) :
-                        this.renameFile(csvFilename, csvFilename.replace(/\.incomplete$/, "")),
-                    createJsonP || this.createJson(definitionName, resultId, json),
-                ]);
-            })
-                .then(() => resultId);
-        }
+        return this.closeFile(csvFileHandle)
+            .then(() => {
+            return Promise.all([
+                (json.status === "error") ?
+                    Promise.resolve(false) :
+                    this.renameFile(csvFilename, csvFilename.replace(/\.incomplete$/, "")),
+                createJsonP || this.createJson(definitionName, resultId, json),
+            ]);
+        })
+            .then(() => resultId);
     }
     createRequest(definitionName, requestId, values) {
         assert_1.default(requestId.length === this.pathSeperator2, `Request Ids must be ${this.pathSeperator2} characters long`);

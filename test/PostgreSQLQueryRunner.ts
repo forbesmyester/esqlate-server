@@ -1,6 +1,6 @@
 import test from 'tape';
 import { EsqlateArgument, EsqlateResult, EsqlateStatementNormalized } from "esqlate-lib";
-import { format, getQuery, pgQuery, PgQuery } from '../src/QueryRunner';
+import { format, getQuery, pgQuery, PgQuery } from '../src/PostgreSQLQueryRunner';
 import { QueryArrayResult, QueryResult } from "pg";
 
 test('getQuery', (assert) => {
@@ -32,8 +32,8 @@ test('getQuery', (assert) => {
 
     const expectedValues: PgQuery["values"] = [4, "4fs6a3"];
     assert.deepEqual(
-        { text: expectedText, values: expectedValues },
         r,
+        { text: expectedText, values: expectedValues },
     );
     assert.end();
 });

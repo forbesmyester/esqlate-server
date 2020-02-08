@@ -361,14 +361,14 @@ export function getResultCsv({ persistence }: NeedsPersistence) {
 
         persistence.getResultCsvStream(definitionName, resultId)
             .then((readStream: ReadStream) => {
-                res.setHeader('content-type', 'text/csv');
-                res.setHeader('Content-disposition', `attachment; filename=${definitionName}-${resultId}.csv`);
-                const stream = readStream.pipe(res)
-                stream.on('finish', () => {
+                res.setHeader("content-type", "text/csv");
+                res.setHeader("Content-disposition", `attachment; filename=${definitionName}-${resultId}.csv`);
+                const stream = readStream.pipe(res);
+                stream.on("finish", () => {
                     res.end();
                     return next();
                 });
-                stream.on('error', (err) => {
+                stream.on("error", (err) => {
                     res.send("WARNING: An error occurred during preperation of the CSV");
                     return next(err);
                 });
