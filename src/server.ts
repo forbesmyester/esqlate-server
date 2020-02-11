@@ -1,28 +1,25 @@
 import Ajv from "ajv";
-import assert = require("assert");
 import bodyParser from "body-parser";
-import cors, {CorsOptions} from "cors";
-import express, { Express, NextFunction, Request, Response, static as expressStatic } from "express";
+import cors, { CorsOptions } from "cors";
+import express, { Express, NextFunction, Request, Response } from "express";
 import fs from "fs";
 import path from "path";
-import { Pool } from "pg";
 
-import {EsqlateDefinition} from "esqlate-lib";
+import { EsqlateDefinition } from "esqlate-lib";
 import * as schemaDefinition from "esqlate-lib/res/schema-definition.json";
-import getEsqlateQueue from "esqlate-queue";
 import { EsqlateQueue } from "esqlate-queue";
 import JSON5 from "json5";
 import logger, { Level } from "./logger";
-import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureRequestErrorHandler, getDefinition, getRequest, getResult, loadDefinition, outstandingRequestId, runDemand, ServerVariableRequester, ServiceInformation, getResultCsv } from "./middleware";
+import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureRequestErrorHandler, getDefinition, getRequest, getResult, getResultCsv, loadDefinition, outstandingRequestId, runDemand, ServerVariableRequester, ServiceInformation } from "./middleware";
 import nextWrap, { NextWrapDependencies } from "./nextWrap";
 import { FilesystemPersistence, Persistence } from "./persistence";
-import { DemandRunner, getDemandRunner, getEsqlateQueueWorker, getLookupOid, QueueItem, ResultCreated } from "./QueryRunner";
+import { DatabaseType, DemandRunner, getQueryRunner, QueueItem, ResultCreated } from "./QueryRunner";
 
 if (!process.env.hasOwnProperty("LISTEN_PORT")) {
     logger(Level.FATAL, "STARTUP", "no LISTEN_PORT environmental variable defined");
 }
 
-const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY || (__dirname + '/example_definition');
+const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY || (__dirname + "/example_definition");
 
 const ajv = new Ajv();
 const ajvValidateDefinition = ajv.compile(schemaDefinition);
@@ -91,13 +88,13 @@ function readDefinitionList(level: Level, knownDefinitions: string[]): Promise<D
                     logger(level, "DEFINITION", `Could not read definition ${fullPath}`);
                     return reject(`Could not read filename ${fullPath}`);
                 }
-                resolve({data, fullPath});
+                resolve({ data, fullPath });
             });
         });
 
     }
 
-    function certify({data, fullPath}: {data: string, fullPath: string}): Promise<DefinitionListItem | false> {
+    function certify({ data, fullPath }: { data: string, fullPath: string }): Promise<DefinitionListItem | false> {
         return Promise.resolve(certifyDefinition(
             level,
             fullPath,
@@ -211,7 +208,7 @@ function setupApp(
             patchDefinitionMap(Level.ERROR).then(() => {
                 res.json(
                     Array.from(definitionMap.entries())
-                        .map((([name, title]) => ({ name, title })))
+                        .map((([ name, title ]) => ({ name, title })))
                 );
                 next();
             });
@@ -289,7 +286,7 @@ function setupApp(
     app.get(
         "/result/:definitionName/:resultId",
         (req: Request, _res: Response, next: NextFunction) => {
-            if (req.params && req.params.resultId.match(/\.csv$/,)) { return; }
+            if (req.params && req.params.resultId.match(/\.csv$/)) { return; }
             next();
         },
         nwCaptureRequestStart,
@@ -304,33 +301,24 @@ function setupApp(
 
 }
 
-const pool = new Pool();
-let connectionCount = 0;
-pool.on("connect", () => {
-    logger(Level.INFO, "DATABASE", `Database Connection Count Incremented: ${++connectionCount} Connections`);
-});
-pool.on("connect", () => {
-    logger(Level.INFO, "DATABASE", `Database Connection Count Decremented: ${--connectionCount} Connections`);
-});
-pool.on("error", (e) => {
-    logger(Level.FATAL, "DATABASE", `Database Error: ${e.message}`);
-});
-getLookupOid(pool)
-    .then((lookupOid) => {
+const databaseType = (process.env.hasOwnProperty("DATABASE_TYPE") &&
+    (("" + process.env.DATABASE_TYPE).toLowerCase() === "mysql")) ?
+        DatabaseType.MySQL :
+        DatabaseType.PostgreSQL;
 
+getQueryRunner(databaseType, logger).then(({queue, demand}) => {
         const persistence = new FilesystemPersistence("persistence");
         const serviceInformation: ServiceInformation = {
             getApiRoot: (_req: Request) => {
                 return "/";
             },
         };
-        const queue = getEsqlateQueue(getEsqlateQueueWorker(pool, lookupOid));
 
         const app = setupApp(
             persistence,
             serviceInformation,
             queue,
-            getDemandRunner(pool, lookupOid),
+            demand,
         );
 
         app.listen(process.env.LISTEN_PORT, () => {
@@ -339,4 +327,4 @@ getLookupOid(pool)
 
         writeResults(persistence, queue);
 
-    });
+});

@@ -10,6 +10,14 @@ It aims to give a reasonable web interface giving the user the ability to run qu
 
 image:README-rest-diagram.png[]
 
+## Note on Database Types
+
+This software was always planned to support multiple databases but PostgreSQL was it's first target database. Currently this software also supports MySQL but sections of this README will make the assumption that you are setting up for PostgreSQL.
+
+If you wish to use another database please see below:
+
+ * [MySQL](#mysql-support)
+
 ## To install this project
 
 ### Starting a local, sample database.
@@ -225,12 +233,63 @@ curl -v -H "Content-Type: application/json" \
     http://localhost:8803/demand/customer_search_by_name_only
 ```
 
+## MySQL Support
+
+#### Import a sample data set
+
+Then import a sample data set (in this case, Microsoft's Northwind dataset converted into MySQL).
+
+```bash
+export MYHOST=127.0.0.1
+export MYUSER=root
+export MYPASSWORD=mysql
+export MYDATABASE=northwind
+
+echo "create database if not exists northwind" | mariadb -u"$MYUSER" -p"$MYPASSWORD" -h"$MYHOST" -D"$MYDATABASE"
+curl https://raw.githubusercontent.com/dalers/mywind/master/northwind.sql | mariadb -u"$MYUSER" -p"$MYPASSWORD" -h"$MYHOST" -D"$MYDATABASE"
+curl https://raw.githubusercontent.com/dalers/mywind/master/northwind-data.sql | mariadb -u"$MYUSER" -p"$MYPASSWORD" -h"$MYHOST" -D"$MYDATABASE"
+
+echo "alter table shippers change column company company_name varchar(50)" | mariadb -u"$MYUSER" -p"$MYPASSWORD" -h"$MYHOST" -D"$MYDATABASE"
+
+```
+
+To run eSQLate using MySQL you will need to define the MY* environmental variables above as well as `DATABASE_TYPE` which should be set to `"MySQL"`. Once you have done this eSQLate will switch to using the MySQL driver.
+
+NOTE: Very little of the example definitions will work due to differences between the PostgreSQL schema and the MySQL schema. I have added a `shipper_search` example_definition file which will work in both PostgreSQL and MySQL.
+
+However if you launch esqlate-server the shipper_search will now run
+
+```
+$ export URL_ROOT="http://localhost:8803"
+$ curl -H "Content-Type: application/json"     -X POST     --data '{"arguments": [{"name": "company_name", "value":"PS"}]}'     ${URL_ROOT}/request/shipper_search
+{"location":"/request/shipper_search/FGAruVhE"}
+$ curl -H "Content-Type: application/json" ${URL_ROOT}/request/shipper_search/FGAruVhE
+{"status":"complete","location":"/result/shipper_search/FGAruVhE9Dxe"}
+$ curl -H "Content-Type: application/json" ${URL_ROOT}/result/shipper_search/FGAruVhE9Dxe | jq .
+{
+  "fields": [],
+  "rows": [],
+  "full_data_set": true,
+  "status": "complete",
+  "full_format_urls": [
+    {
+      "type": "text/csv",
+      "location": "/result/shipper_search/FGAruVhE9Dxe.csv"
+    }
+  ]
+}
+```
 
 ## Version History
 
  * 1.0.0 - Initial Release
+ * 1.1.0 - Support added for multiple database support (MySQL)
  * 1.0.1 - Fix bug #9 - Unable to use a parameter named `user_id`
+ * 1.1.1 - Merge #9 into 1.1
+ * 1.1.2 - Fix not releasing MySQL connections.
+ * 1.1.3 - Allow specifying of MySQL port.
 
 ## License
 
 This project (all code in this repository) is listed under GPLv3 or later
+

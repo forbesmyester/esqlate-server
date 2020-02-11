@@ -1,0 +1,12 @@
+
+{
+  "name": "shipper_search",
+  "title": "Search for Shippers",
+  "description": "List shippers using a substring search",
+  "parameters": [{
+    "name": "company_name",
+    "type": "string"
+  }],
+  "statement_type": "SELECT",
+  "statement": "SELECT * FROM shippers\nWHERE\n  LOWER(company_name) LIKE CONCAT('%', LOWER($company_name), '%')"
+}
