@@ -215,6 +215,9 @@ function getQueryRunner(logger) {
         user: process.env.MYUSER,
         database: process.env.MYDATABASE,
         password: process.env.MYPASSWORD,
+        port: process.env.hasOwnProperty("MYPORT") ?
+            parseInt(process.env.MYPORT, 10) :
+            3306,
     });
     let connectionCount = 0;
     pool.on("acquire", () => {
