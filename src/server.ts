@@ -306,7 +306,10 @@ const databaseType = (process.env.hasOwnProperty("DATABASE_TYPE") &&
         DatabaseType.MySQL :
         DatabaseType.PostgreSQL;
 
-getQueryRunner(databaseType, logger).then(({queue, demand}) => {
+const databaseParallelism = parseInt(process.env.DATABASE_PARALLELISM || "5", 10) || 5;
+
+getQueryRunner(databaseType, databaseParallelism, logger)
+    .then(({queue, demand}) => {
         const persistence = new FilesystemPersistence("persistence");
         const serviceInformation: ServiceInformation = {
             getApiRoot: (_req: Request) => {
@@ -327,4 +330,4 @@ getQueryRunner(databaseType, logger).then(({queue, demand}) => {
 
         writeResults(persistence, queue);
 
-});
+    });

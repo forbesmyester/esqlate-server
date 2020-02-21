@@ -260,7 +260,7 @@ function getEsqlateQueueWorker(pool: Pool): EsqlateQueueWorker<QueueItem, Result
 }
 
 
-export default function getQueryRunner(logger: Logger): Promise<DatabaseInterface> {
+export default function getQueryRunner(parallelism: number = 1, logger: Logger): Promise<DatabaseInterface> {
     for (const name of ["MYUSER", "MYPASSWORD", "MYDATABASE", "MYHOST"]) {
         if (!process.env.hasOwnProperty(name)) {
             throw new Error(`The eSQLate MySQL driver requires ["MYUSER", "MYPASSWORD", "MYDATABASE", "MYHOST"] as environmental variables. At least ${name} is missing`);
@@ -283,7 +283,7 @@ export default function getQueryRunner(logger: Logger): Promise<DatabaseInterfac
         logger(Level.INFO, "DATABASE", `Database Connection Count Decremented: ${--connectionCount} Connections`);
     });
     return Promise.resolve({
-        queue: getEsqlateQueue(getEsqlateQueueWorker(pool)),
+        queue: getEsqlateQueue(getEsqlateQueueWorker(pool), parallelism),
         demand: getDemandRunner(pool),
     });
 }

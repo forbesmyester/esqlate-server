@@ -10,12 +10,12 @@ var DatabaseType;
     DatabaseType[DatabaseType["PostgreSQL"] = 1] = "PostgreSQL";
     DatabaseType[DatabaseType["MySQL"] = 2] = "MySQL";
 })(DatabaseType = exports.DatabaseType || (exports.DatabaseType = {}));
-function getQueryRunner(dbType, logger) {
+function getQueryRunner(dbType, parallelism = 1, logger) {
     switch (dbType) {
         case DatabaseType.PostgreSQL:
-            return PostgreSQLQueryRunner_1.default(logger);
+            return PostgreSQLQueryRunner_1.default(parallelism, logger);
         case DatabaseType.MySQL:
-            return MySQLQueryRunner_1.default(logger);
+            return MySQLQueryRunner_1.default(parallelism, logger);
     }
 }
 exports.getQueryRunner = getQueryRunner;

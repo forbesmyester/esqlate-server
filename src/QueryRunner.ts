@@ -58,11 +58,11 @@ export enum DatabaseType {
 }
 
 
-export function getQueryRunner(dbType: DatabaseType, logger: Logger): Promise<DatabaseInterface> {
+export function getQueryRunner(dbType: DatabaseType, parallelism: number = 1, logger: Logger): Promise<DatabaseInterface> {
     switch (dbType) {
         case DatabaseType.PostgreSQL:
-            return PostgreSQLQueryRunner(logger);
+            return PostgreSQLQueryRunner(parallelism, logger);
         case DatabaseType.MySQL:
-            return MySQLQueryRunner(logger);
+            return MySQLQueryRunner(parallelism, logger);
     }
 }

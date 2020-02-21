@@ -204,7 +204,7 @@ function getEsqlateQueueWorker(pool) {
         };
     };
 }
-function getQueryRunner(logger) {
+function getQueryRunner(parallelism = 1, logger) {
     for (const name of ["MYUSER", "MYPASSWORD", "MYDATABASE", "MYHOST"]) {
         if (!process.env.hasOwnProperty(name)) {
             throw new Error(`The eSQLate MySQL driver requires ["MYUSER", "MYPASSWORD", "MYDATABASE", "MYHOST"] as environmental variables. At least ${name} is missing`);
@@ -227,7 +227,7 @@ function getQueryRunner(logger) {
         logger(logger_1.Level.INFO, "DATABASE", `Database Connection Count Decremented: ${--connectionCount} Connections`);
     });
     return Promise.resolve({
-        queue: esqlate_queue_1.default(getEsqlateQueueWorker(pool)),
+        queue: esqlate_queue_1.default(getEsqlateQueueWorker(pool), parallelism),
         demand: getDemandRunner(pool),
     });
 }

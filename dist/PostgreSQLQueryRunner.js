@@ -184,7 +184,7 @@ function getEsqlateQueueWorker(pool, lookupOid) {
         };
     };
 }
-function getQueryRunner(logger) {
+function getQueryRunner(parallelism = 1, logger) {
     const pool = new pg.Pool();
     let connectionCount = 0;
     pool.on("connect", () => {
@@ -199,7 +199,7 @@ function getQueryRunner(logger) {
     return getLookupOid(pool)
         .then((lookupOid) => {
         return {
-            queue: esqlate_queue_1.default(getEsqlateQueueWorker(pool, lookupOid)),
+            queue: esqlate_queue_1.default(getEsqlateQueueWorker(pool, lookupOid), parallelism),
             demand: getDemandRunner(pool, lookupOid),
         };
     });

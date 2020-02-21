@@ -253,7 +253,7 @@ function getEsqlateQueueWorker(pool: pg.Pool, lookupOid: (oid: number) => string
 }
 
 
-export default function getQueryRunner(logger: Logger): Promise<DatabaseInterface> {
+export default function getQueryRunner(parallelism: number = 1, logger: Logger): Promise<DatabaseInterface> {
     const pool = new pg.Pool();
     let connectionCount = 0;
     pool.on("connect", () => {
@@ -268,7 +268,7 @@ export default function getQueryRunner(logger: Logger): Promise<DatabaseInterfac
     return getLookupOid(pool)
         .then((lookupOid) => {
             return {
-                queue: getEsqlateQueue(getEsqlateQueueWorker(pool, lookupOid)),
+                queue: getEsqlateQueue(getEsqlateQueueWorker(pool, lookupOid), parallelism),
                 demand: getDemandRunner(pool, lookupOid),
             };
         });

@@ -179,7 +179,9 @@ const databaseType = (process.env.hasOwnProperty("DATABASE_TYPE") &&
     (("" + process.env.DATABASE_TYPE).toLowerCase() === "mysql")) ?
     QueryRunner_1.DatabaseType.MySQL :
     QueryRunner_1.DatabaseType.PostgreSQL;
-QueryRunner_1.getQueryRunner(databaseType, logger_1.default).then(({ queue, demand }) => {
+const databaseParallelism = parseInt(process.env.DATABASE_PARALLELISM || "5", 10) || 5;
+QueryRunner_1.getQueryRunner(databaseType, databaseParallelism, logger_1.default)
+    .then(({ queue, demand }) => {
     const persistence = new persistence_1.FilesystemPersistence("persistence");
     const serviceInformation = {
         getApiRoot: (_req) => {
