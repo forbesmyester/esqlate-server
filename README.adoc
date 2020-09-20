@@ -16,7 +16,7 @@ This software was always planned to support multiple databases but PostgreSQL wa
 
 If you wish to use another database please see below:
 
- * [MySQL](#mysql-support)
+ * link:#mysql-support[MySQL]
 
 ## To install this project
 
