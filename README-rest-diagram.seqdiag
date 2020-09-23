@@ -6,6 +6,9 @@ seqdiag {
   c [label="client"];
   s [label="server"];
 
+  c -> s [label="GET: /definition"];
+  c <- s [label="200 OK",note="Response (Definition List):\n \n1 | [\n2 |   {\"title\": \"Create order\", \"name\": \"order\"}\n3 |   {\"title\": \"List customers\", \"name\": \"list_customer\"}\n4 | ]"]
+
   c -> s [label="GET: /definition/order"];
   c <- s [label="200 OK",note="Response (Definition):\n \n1 | {\n2 |   \"title\": \"Create order\",\n3 |   \"statement\": \"INSERT INTO order (customer_id) VALUES ($customer_id)\n4 |                 RETURNING order_id, customer_id\"\n5 |   \"parameters\": [{\n6 |     \"name\": \"customer_id\",\n7 |     \"type\": \"select\",\n8 |     \"statement\": \"list_customer\",\n9 |     \"display_field\": \"disp\",\n10|     \"value_field\": \"id\"\n11|   }]\n12| }\n"]
 
