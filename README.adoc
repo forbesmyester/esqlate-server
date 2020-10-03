@@ -48,7 +48,7 @@ Then import a sample data set (in this case, Microsoft's Northwind dataset conve
 
 ```bash
 export PGHOST=127.0.0.1
-export PGUSER=postres
+export PGUSER=postgres
 export PGPASSWORD=postgres
 export PGDATABASE=postgres
 curl https://raw.githubusercontent.com/pthom/northwind_psql/5f9ba34aa1d980392685042037b0b1112d01bd32/northwind.sql | psql
