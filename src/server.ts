@@ -1,14 +1,9 @@
-import Ajv from "ajv";
 import bodyParser from "body-parser";
 import cors, { CorsOptions } from "cors";
 import express, { Express, NextFunction, Request, Response } from "express";
-import fs from "fs";
-import path from "path";
 
-import { EsqlateDefinition } from "esqlate-lib";
-import * as schemaDefinition from "esqlate-lib/res/schema-definition.json";
 import { EsqlateQueue } from "esqlate-queue";
-import JSON5 from "json5";
+import { DefinitionList, readDefinitionList } from "./functions";
 import logger, { Level } from "./logger";
 import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureRequestErrorHandler, getDefinition, getRequest, getResult, getResultCsv, loadDefinition, outstandingRequestId, runDemand, ServerVariableRequester, ServiceInformation } from "./middleware";
 import nextWrap, { NextWrapDependencies } from "./nextWrap";
@@ -21,119 +16,20 @@ if (!process.env.hasOwnProperty("LISTEN_PORT")) {
 
 const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY || (__dirname + "/example_definition");
 
-const ajv = new Ajv();
-const ajvValidateDefinition = ajv.compile(schemaDefinition);
 
-interface DefinitionListItem {
-    name: string;
-    title: string;
-}
-type DefinitionList = DefinitionListItem[];
 type DefinitionMap = Map<string, string>;
 const definitionMap: DefinitionMap = new Map();
 
-function hasNoStaticParams(def: EsqlateDefinition): boolean {
-    return !def.parameters.some((param) => param.type === "static");
-}
-
-function certifyDefinition(loggerLevel: Level, fullPath: string, data: string): DefinitionListItem | false {
-
-    let json: EsqlateDefinition;
-
-    try {
-        json = JSON5.parse(data);
-    } catch (e) {
-        logger(loggerLevel, "DEFINITION", `Could not unserialize definition ${fullPath}`);
-        throw new Error(`Could not unserialize definition ${fullPath}`);
-    }
-
-    const valid = ajvValidateDefinition(json);
-    if (!valid) {
-        const errors = ajvValidateDefinition.errors;
-        logger(loggerLevel, "DEFINITION", `Definition ${fullPath} has errors ${JSON.stringify(errors)}`);
-        throw new Error(`Definition ${fullPath} has errors ${JSON.stringify(errors)}`);
-    }
-
-    if (json.name !== path.basename(fullPath).replace(/\.json5?$/, "")) {
-        logger(loggerLevel, "DEFINITION", `Definition ${fullPath} has different name to filename`);
-        throw new Error(`Definition ${fullPath} has different name to filename`);
-    }
-
-    if (
-        (path.basename(fullPath).substring(0, 1) !== "_") &&
-        hasNoStaticParams(json)
-    ) {
-        return { title: json.title, name: json.name };
-    }
-
-    return false;
-
-}
-
-function sequentialPromises<T, R>(ar: T[], f: (t: T) => Promise<R|false>): Promise<R[]> {
-    const ps = ar.map(f);
-    return Promise.all(ps)
-        .then((items) => {
-            return items.filter((i) => i !== false) as R[];
-        });
-}
-
-function readDefinitionList(level: Level, knownDefinitions: string[]): Promise<DefinitionList> {
-
-    function readFile(fullPath: string): Promise<{ data: string, fullPath: string}> {
-
-        return new Promise((resolve, reject) => {
-            fs.readFile(fullPath, { encoding: "utf8" }, (readFileErr, data) => {
-                if (readFileErr) {
-                    logger(level, "DEFINITION", `Could not read definition ${fullPath}`);
-                    return reject(`Could not read filename ${fullPath}`);
-                }
-                resolve({ data, fullPath });
-            });
-        });
-
-    }
-
-    function certify({ data, fullPath }: { data: string, fullPath: string }): Promise<DefinitionListItem | false> {
-        return Promise.resolve(certifyDefinition(
-            level,
-            fullPath,
-            data,
-        ));
-    }
-
-    function myReadDir(): Promise<string[]> {
-        return new Promise((resolve, reject) => {
-            fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
-                if (readDirErr) {
-                    logger(Level.FATAL, "DEFINITION", "Could not list definition");
-                    reject("Could not list definition");
-                }
-                resolve(filenames);
-            });
-        });
-    }
-
-    return myReadDir()
-        .then((filenames) => {
-
-            const fullPaths = filenames
-                .map((filename) => {
-                    return path.join(DEFINITION_DIRECTORY, filename);
-                })
-                .filter((fp) => path.basename(fp).substring(0, 1) !== "_")
-                .filter((fp) => knownDefinitions.indexOf(fp) === -1);
-
-            return sequentialPromises(fullPaths, readFile)
-                .then((datas) => {
-                    return sequentialPromises(datas, certify);
-                });
-        });
-
-}
-
 function patchDefinitionMap(level: Level) {
-    return readDefinitionList(level, Array.from(definitionMap.keys()))
+
+    const conf = {
+        loggerLevel: level,
+        knownDefinitions: Array.from(definitionMap.keys()),
+        definitionDirectory: DEFINITION_DIRECTORY,
+    };
+    const deps = { logger };
+
+    return readDefinitionList(deps, conf)
         .then((dl: DefinitionList) => {
             dl.forEach(({ name, title }) => {
                 definitionMap.set(name, title);
