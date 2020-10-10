@@ -292,6 +292,7 @@ $ curl -H "Content-Type: application/json" ${URL_ROOT}/result/shipper_search/FGA
  * 1.1.5 - Allow parallelism for database interactions
  * 1.1.6 - Maintenance release to fix security and typings due to 3rd party upgrades.
  * 1.1.7 - Use process.cwd() not `__dirname` to find `example_definition` directory
+ * 1.1.8 - Cannot include `package-lock.json` in Dockerfile
 
 ## License
 
