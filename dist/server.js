@@ -38,7 +38,7 @@ const QueryRunner_1 = require("./QueryRunner");
 if (!process.env.hasOwnProperty("LISTEN_PORT")) {
     logger_1.default(logger_1.Level.FATAL, "STARTUP", "no LISTEN_PORT environmental variable defined");
 }
-const DEFINITION_DIRECTORY = process.env.DEFINITION_DIRECTORY || (__dirname + "/example_definition");
+const DEFINITION_DIRECTORY = process.env.DEFINITION_DIRECTORY || (process.cwd() + "/example_definition");
 const ajv = new ajv_1.default();
 const ajvValidateDefinition = ajv.compile(schemaDefinition);
 const definitionMap = new Map();
@@ -94,6 +94,7 @@ function readDefinitionList(level, knownDefinitions) {
     }
     function myReadDir() {
         return new Promise((resolve, reject) => {
+            console.log(DEFINITION_DIRECTORY);
             fs_1.default.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
                 if (readDirErr) {
                     logger_1.default(logger_1.Level.FATAL, "DEFINITION", "Could not list definition");

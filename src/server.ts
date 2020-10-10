@@ -19,7 +19,7 @@ if (!process.env.hasOwnProperty("LISTEN_PORT")) {
     logger(Level.FATAL, "STARTUP", "no LISTEN_PORT environmental variable defined");
 }
 
-const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY || (__dirname + "/example_definition");
+const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY || (process.cwd() + "/example_definition");
 
 const ajv = new Ajv();
 const ajvValidateDefinition = ajv.compile(schemaDefinition);
@@ -104,6 +104,7 @@ function readDefinitionList(level: Level, knownDefinitions: string[]): Promise<D
 
     function myReadDir(): Promise<string[]> {
         return new Promise((resolve, reject) => {
+            console.log(DEFINITION_DIRECTORY);
             fs.readdir(DEFINITION_DIRECTORY, (readDirErr, filenames) => {
                 if (readDirErr) {
                     logger(Level.FATAL, "DEFINITION", "Could not list definition");
