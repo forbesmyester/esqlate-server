@@ -1,7 +1,7 @@
 import { EsqlateArgument, EsqlateDefinition, EsqlateErrorResult, EsqlateFieldDefinition, EsqlateParameter, EsqlateResult, EsqlateStatementNormalized, EsqlateSuccessResult, EsqlateSuccessResultRow, normalize} from "esqlate-lib";
 import streamPromisesAsGenerator from "esqlate-promise-returning-function-to-generator";
 import getEsqlateQueue, { EsqlateQueueWorker } from "esqlate-queue";
-import { createPool, FieldInfo, format, Pool, PoolConnection } from "mysql";
+import { createPool, FieldInfo, format, Pool, PoolConnection, TypeCast, UntypedFieldInfo } from "mysql";
 import randCryptoString from "random-crypto-string";
 
 import { Level, Logger } from "./logger";
@@ -106,16 +106,15 @@ function demandRunnerImpl(pool: Pool, inSql: string, values: any[]): Promise<Esq
         const fieldsFound: Set<string> = new Set();
         const fields: EsqlateFieldDefinition[] = [];
 
-        const qry = {
-            sql,
-            typeCast: (field: FieldInfo & { type: string }, next: () => void) => {
-                if (!fieldsFound.has(field.name)) {
-                    fields.push({ name: field.name, type: field.type });
-                    fieldsFound.add(field.name);
-                }
-                return next();
-            },
+        let typeCast: TypeCast = (field, next) => {
+            if (!fieldsFound.has(field.name)) {
+                fields.push({ name: field.name, type: field.type });
+                fieldsFound.add(field.name);
+            }
+            return next();
         };
+
+        const qry = { sql, typeCast };
 
         pool.query(qry, (err, res: MysqlRow[]) => {
             if (err) { return reject(err); }

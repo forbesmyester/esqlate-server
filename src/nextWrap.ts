@@ -16,7 +16,7 @@ export default function nextWrap(deps: NextWrapDependencies, ttl: number, f: Req
                 `Request to ${req.method}:${req.path} using ${f.name}(): Did not respond within ${ttl} seconds`,
             );
         }, ttl * 1000);
-        f(req, res, (err?: Error) => {
+        f(req, res, (err?: any) => {
             deps.clearTimeout(t);
             if (err !== undefined) {
                 return next(err);

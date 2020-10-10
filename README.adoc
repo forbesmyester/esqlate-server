@@ -290,6 +290,7 @@ $ curl -H "Content-Type: application/json" ${URL_ROOT}/result/shipper_search/FGA
  * 1.1.3 - Allow specifying of MySQL port.
  * 1.1.4 - Allow specifying of MySQL port - Merge.
  * 1.1.5 - Allow parallelism for database interactions
+ * 1.1.6 - Maintenance release to fix security and typings due to 3rd party upgrades.
 
 ## License
 

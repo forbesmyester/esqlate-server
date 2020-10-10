@@ -1,4 +1,4 @@
-FROM node:12
+FROM node:12.19
 
 ENV TINI_VERSION v0.18.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
@@ -17,7 +17,7 @@ ENV PGDATABASE "postgres"
 ENV PGHOST "127.0.0.1"
 
 WORKDIR /esqlate-server
-COPY package.json tsconfig.json tslint.json ./
+COPY package.json tsconfig.json tslint.json package-lock.json ./
 
 RUN npm install
 
