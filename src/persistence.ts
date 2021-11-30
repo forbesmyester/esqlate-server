@@ -7,6 +7,7 @@ import assert from "assert";
 import { access, close as fsClose, createReadStream, mkdir, open as fsOpen, readdir, readFile, ReadStream, rename,  write as fsWrite, writeFile } from "fs";
 import * as json2csv from "json2csv";
 import { join } from "path";
+import {DefinitionList} from "./functions";
 
 
 export enum ResultExistance {
@@ -29,6 +30,7 @@ export interface Persistence {
     getResultCsvStream(
         definitionName: EsqlateDefinition["name"],
         resultId: ResultId): Promise<ReadStream>;
+    getRequest(definitionName: string, requestId: string): Promise<RequestFileData>;
 }
 
 export type RequestId = string;
@@ -46,14 +48,15 @@ export interface LoadedRequstFileData {
 
 export function safeDefinitionName(s: string) {
     if (!("" + s).match(/^_?[a-z][a-z0-9_]{0,99}$/)) {
-        throw new Error(`Path element '${s}' includes invalid characters`);
+        throw new Error(`safeDefinitionName: Path element '${s}' includes invalid characters`);
     }
     return ("" + s);
 }
 
 export function safeId(s: string) {
-    if (!("" + s).match(/^[a-zA-Z0-9_]{0,99}$/)) {
-        throw new Error(`Path element '${s}' includes invalid characters`);
+    // if (!("" + s).match(/^[a-zA-Z0-9_]{0,99}(\.((csv)|(json)))?$/)) {
+    if (!("" + s).match(/^[a-zA-Z0-9_]{0,99}(\.((csv)|(json)))?$/)) {
+        throw new Error(`safeId: Path element '${s}' includes invalid characters`);
     }
     return ("" + s);
 }
@@ -136,6 +139,22 @@ export class FilesystemPersistence implements Persistence {
     }
 
 
+    private getRequestFilename(definitionName: string, requestId: string): string[] {
+        return [
+            this.storagePath,
+            safeDefinitionName(definitionName),
+            safeId(requestId).substring(0, this.pathSeperator1),
+            safeId(requestId).substring(this.pathSeperator1),
+            "request.json",
+        ];
+    }
+
+
+    public getRequest(definitionName: string, requestId: string): Promise<RequestFileData> {
+        const fnArray = this.getRequestFilename(definitionName, requestId);
+        return this.readFile(join(...fnArray)).then((s) => JSON.parse(s) as RequestFileData);
+    }
+
     public createRequest(
             definitionName: EsqlateDefinition["name"],
             requestId: RequestId,
@@ -143,13 +162,7 @@ export class FilesystemPersistence implements Persistence {
 
         assert(requestId.length === this.pathSeperator2, `Request Ids must be ${this.pathSeperator2} characters long`);
 
-        const filename = [
-            this.storagePath,
-            safeDefinitionName(definitionName),
-            safeId(requestId).substring(0, this.pathSeperator1),
-            safeId(requestId).substring(this.pathSeperator1),
-            "request.json",
-        ];
+        const filename = this.getRequestFilename(definitionName, requestId);
 
         return new Promise((resolve, reject) => {
             const writeData: RequestFileData = {
@@ -164,12 +177,17 @@ export class FilesystemPersistence implements Persistence {
     }
 
 
+    public getResultCsvFilename(definitionName: string, resultId: string): string {
+        const filename = join.apply(null, this.getResultFilename(definitionName, resultId));
+        return filename.replace(/\.json$/, ".csv");
+    }
+
+
     public async getResultCsvStream(
         definitionName: EsqlateDefinition["name"],
         resultId: ResultId): Promise<ReadStream> {
 
-        const filename = join.apply(null, this.getResultFilename(definitionName, resultId));
-        const csvFilename = filename.replace(/\.json$/, ".csv");
+        const csvFilename = this.getResultCsvFilename(definitionName, resultId);
 
         const csvReadable = await this.access(csvFilename);
         if (!csvReadable) {
@@ -377,13 +395,138 @@ export class FilesystemPersistence implements Persistence {
     }
 
 
-    private readdir(s: string): Promise<string[]> {
+    protected readdir(s: string): Promise<string[]> {
         return new Promise((resolve, reject) => {
             readdir(s, (err, files) => {
                 if (err) { return reject(err); }
                 resolve(files);
             });
         });
+    }
+
+
+    public async getQueue(definitionNames: string[]): Promise<{definition: string; id: string}[]> {
+
+        interface ListingItem {
+            parentDir: string;
+            child: string;
+        }
+
+        interface ListingItems {
+            parentDir: ListingItem["parentDir"];
+            child: ListingItem["child"][];
+        }
+
+        function isDefinitionName(maybeDirname: ListingItem) {
+            return definitionNames.some((dn) => dn == maybeDirname.child)
+        }
+
+        function flatten<X>(x: X[][]): X[] {
+            return ([] as X[]).concat(...x);
+        }
+
+        function listingItemToFullPath(li: ListingItem): string {
+            return join(li.parentDir, li.child);
+        }
+
+        // const readDirs: (dirs: string[]) => Promise<ListingItem[]> = (dirs: string[]) => {
+        function readDirsImpl(readdir: (s: string) => Promise<string[]>, dirs: string[]): Promise<ListingItem[]> {
+            let proms = Promise.all(dirs.map(
+                (d) => {
+                    return readdir(d)
+                        .then((files) => {
+                            return files.map((f) => {
+                                return { parentDir: d, child: f };
+                            });
+                        })
+                        .catch((e) => {
+                            if (e.code == "ENOENT") { return [] as ListingItem[]; }
+                            if (e.code == "ENOTDIR") { return [] as ListingItem[]; }
+                            return [] as ListingItem[];
+                            // throw e;
+                        });
+                }
+            ));
+            return proms.then((ps) => flatten(ps));
+        }
+
+        function groupListingItem(items: ListingItem[]): ListingItems[] {
+            let m: Map<ListingItem["parentDir"], ListingItem[]> = new Map();
+            for (const item of items) {
+                let ar = m.get(item.parentDir) || [];
+                ar.push(item);
+                m.set(item.parentDir, ar);
+            }
+            let r: ListingItems[] = [];
+            for (const [parentDir, items] of m) {
+                let toAdd: ListingItems = { parentDir, child: [] };
+                for (const item of items) {
+                    toAdd.child.push(item.child);
+                }
+                r.push(toAdd);
+            }
+            return r;
+        }
+
+        function noRequest({child}: ListingItems): boolean {
+            return child.indexOf("request.json") > -1;
+        }
+
+        function hasResults({child}: ListingItems): boolean {
+            let ids: Set<string> = new Set();
+            for (const c of child) {
+                let end = '';
+                if (c.substr(-11) == '-result.csv') {
+                    end = '-result.csv';
+                }
+                if (c.substr(-12) == '-result.json') {
+                    end = '-result.json';
+                }
+                let start = c.substr(0, c.length - end.length)
+                if (ids.has(start)) {
+                    return true;
+                }
+                if (end) {
+                    ids.add(start);
+                }
+            }
+            return false;
+        }
+
+        function not<A>(f: (a: A) => boolean): (a: A) => boolean {
+            return function(a: A) {
+                return !f(a);
+            };
+        }
+
+        function extractRequestId(acc: {definition: string; id: string}[], {parentDir}: ListingItems): {definition: string; id: string}[] {
+            let m = parentDir.match(/([^\/]{1,128})\/([^\/]{1,128})\/([^\/]{1,128})$/);
+            if (!m) { return acc; }
+            try {
+                acc.push({definition: m[1], id: safeId(m[2] + m[3])});
+            } catch (_e) {
+                // pass through
+            }
+            return acc;
+        }
+
+        const readDirs = readDirsImpl.bind(null, this.readdir);
+
+        const definitions: ListingItem[] = await readDirs([this.storagePath]);
+        const idPart1: ListingItem[] = await readDirs(
+            definitions.filter(isDefinitionName).map(listingItemToFullPath)
+        );
+        const idpart2: ListingItem[] = await readDirs(
+            idPart1.map(listingItemToFullPath)
+        );
+        const files: ListingItem[] = await readDirs(
+            idpart2.map(listingItemToFullPath)
+        );
+
+        return groupListingItem(files)
+            .filter(noRequest)
+            .filter(not(hasResults))
+            .reduce(extractRequestId, []);
     }
 
 

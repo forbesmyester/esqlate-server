@@ -3,9 +3,9 @@ import cors, { CorsOptions } from "cors";
 import express, { Express, NextFunction, Request, Response } from "express";
 
 import { EsqlateQueue } from "esqlate-queue";
-import { DefinitionList, readDefinitionList } from "./functions";
+import { DefinitionList, getLoadDefinition, Input, readDefinitionList, ServerVariableRequester, ServiceInformation } from "./functions";
 import logger, { Level } from "./logger";
-import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureRequestErrorHandler, getDefinition, getRequest, getResult, getResultCsv, loadDefinition, outstandingRequestId, runDemand, ServerVariableRequester, ServiceInformation } from "./middleware";
+import { captureRequestStart, createRequest, getCaptureRequestEnd, getCaptureRequestErrorHandler, getGetDefinition, getRequest, getResult, getResultCsv, outstandingRequestId, runDemand } from "./middleware";
 import nextWrap, { NextWrapDependencies } from "./nextWrap";
 import { FilesystemPersistence, Persistence } from "./persistence";
 import { DatabaseType, DemandRunner, getQueryRunner, QueueItem, ResultCreated } from "./QueryRunner";
@@ -14,8 +14,10 @@ if (!process.env.hasOwnProperty("LISTEN_PORT")) {
     logger(Level.FATAL, "STARTUP", "no LISTEN_PORT environmental variable defined");
 }
 
-const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY || (__dirname + "/example_definition");
+// TODO: THIS SHOULD NOT BE HERE!
+const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY || (process.cwd() + "/example_definition");
 
+const loadDefinition = getLoadDefinition({ definitionDirectory: DEFINITION_DIRECTORY });
 
 type DefinitionMap = Map<string, string>;
 const definitionMap: DefinitionMap = new Map();
@@ -57,14 +59,13 @@ async function writeResults(persistence: Persistence, queue: EsqlateQueue<QueueI
 }
 
 const serverVariableRequester: ServerVariableRequester = {
-    listServerVariable: (_req: Request) => {
+    listServerVariable: (_req: Input<any>) => {
         return [];
     },
-    getServerVariable: (_req: Request, _name: string) => {
+    getServerVariable: (_req: Input<any>, _name: string) => {
         return "";
     },
 };
-
 
 function setupApp(
     persistence: Persistence,
@@ -95,7 +96,6 @@ function setupApp(
 
     const nwCaptureRequestStart = nextWrap(nextWrapDependencies, 1000, captureRequestStart);
     const nwCaptureRequestEnd = nextWrap(nextWrapDependencies, 1000, getCaptureRequestEnd(logger));
-    const nwLoadDefinition = nextWrap(nextWrapDependencies, 1000, loadDefinition);
 
     app.get(
         "/definition",
@@ -116,8 +116,7 @@ function setupApp(
     app.get(
         "/definition/:definitionName",
         nwCaptureRequestStart,
-        nwLoadDefinition,
-        nextWrap(nextWrapDependencies, 1000, getDefinition),
+        nextWrap(nextWrapDependencies, 1000, getGetDefinition({ loadDefinition })),
         nwCaptureRequestEnd,
         getCaptureRequestErrorHandler(logger),
     );
@@ -125,11 +124,10 @@ function setupApp(
     app.post(
         "/demand/:definitionName",
         nwCaptureRequestStart,
-        nwLoadDefinition,
         nextWrap(
             nextWrapDependencies,
             1000,
-            runDemand({ serviceInformation, serverVariableRequester, demandRunner }),
+            runDemand({ loadDefinition, serviceInformation, serverVariableRequester, demandRunner }),
         ),
         nwCaptureRequestEnd,
         getCaptureRequestErrorHandler(logger),
@@ -139,11 +137,10 @@ function setupApp(
     app.post(
         "/request/:definitionName",
         nwCaptureRequestStart,
-        nwLoadDefinition,
         nextWrap(
             nextWrapDependencies,
             1000,
-            createRequest({ persistence, serviceInformation, queue, serverVariableRequester }),
+            createRequest({ loadDefinition, persistence, serviceInformation, queue, serverVariableRequester }),
         ),
         nwCaptureRequestEnd,
         getCaptureRequestErrorHandler(logger),
@@ -162,7 +159,6 @@ function setupApp(
     app.get(
         "/request/:definitionName/:requestId",
         nwCaptureRequestStart,
-        nwLoadDefinition,
         nextWrap(nextWrapDependencies, 1000, getRequest({ persistence, serviceInformation })),
         nwCaptureRequestEnd,
         getCaptureRequestErrorHandler(logger),
@@ -172,7 +168,6 @@ function setupApp(
     app.get(
         "/result/:definitionName/:resultId.csv",
         nwCaptureRequestStart,
-        nwLoadDefinition,
         nextWrap(nextWrapDependencies, 1000, getResultCsv({ persistence })),
         nwCaptureRequestEnd,
         getCaptureRequestErrorHandler(logger),
@@ -186,7 +181,6 @@ function setupApp(
             next();
         },
         nwCaptureRequestStart,
-        nwLoadDefinition,
         nextWrap(nextWrapDependencies, 1000, getResult({ persistence, serviceInformation })),
         nwCaptureRequestEnd,
         getCaptureRequestErrorHandler(logger),
@@ -208,7 +202,7 @@ getQueryRunner(databaseType, databaseParallelism, logger)
     .then(({queue, demand}) => {
         const persistence = new FilesystemPersistence("persistence");
         const serviceInformation: ServiceInformation = {
-            getApiRoot: (_req: Request) => {
+            getApiRoot: () => {
                 return "/";
             },
         };

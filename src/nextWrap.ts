@@ -19,6 +19,9 @@ export default function nextWrap(deps: NextWrapDependencies, ttl: number, f: Req
         f(req, res, (err?: Error) => {
             deps.clearTimeout(t);
             if (err !== undefined) {
+                // if (!res.finished) {
+                //     res.status(500).end();
+                // }
                 return next(err);
             }
             next();

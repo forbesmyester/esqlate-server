@@ -52,7 +52,11 @@ export function pgQuery(statement: EsqlateStatementNormalized, inputValues: { [k
             acc.values = acc.values.concat(getSqlValue(ed));
             acc.knownValues = acc.knownValues.concat([ed.name]);
         }
-
+console.log("SQL: ", {
+            text: acc.text + "$" + (acc.knownValues.indexOf(ed.name) + 1),
+            values: acc.values,
+            knownValues: acc.knownValues,
+        });
         return {
             text: acc.text + "$" + (acc.knownValues.indexOf(ed.name) + 1),
             values: acc.values,
@@ -232,6 +236,7 @@ function getEsqlateQueueWorker(pool: pg.Pool, lookupOid: (oid: number) => string
                     const x = queryResultToEsqlateResult(lookupOid, result);
                     fields = x.fields;
                     resolve({ fields: x.fields, rows: x.rows });
+
                 });
             });
 
@@ -255,12 +260,11 @@ function getEsqlateQueueWorker(pool: pg.Pool, lookupOid: (oid: number) => string
 
 export default function getQueryRunner(parallelism: number = 1, logger: Logger): Promise<DatabaseInterface> {
     const pool = new pg.Pool();
-    let connectionCount = 0;
     pool.on("connect", () => {
-        logger(Level.INFO, "DATABASE", `Database Connection Count Incremented: ${++connectionCount} Connections`);
+        logger(Level.INFO, "DATABASE", `Database Connection Count Incremented: ${pool.totalCount} Connections (with ${pool.waitingCount} waiting and ${pool.idleCount} idle)`);
     });
-    pool.on("connect", () => {
-        logger(Level.INFO, "DATABASE", `Database Connection Count Decremented: ${--connectionCount} Connections`);
+    pool.on("remove", () => {
+        logger(Level.INFO, "DATABASE", `Database Connection Count Decremented: ${pool.totalCount} Connections (with ${pool.waitingCount} waiting and ${pool.idleCount} idle)`);
     });
     pool.on("error", (e) => {
         logger(Level.FATAL, "DATABASE", `Database Error: ${e.message}`);
@@ -270,6 +274,8 @@ export default function getQueryRunner(parallelism: number = 1, logger: Logger):
             return {
                 queue: getEsqlateQueue(getEsqlateQueueWorker(pool, lookupOid), parallelism),
                 demand: getDemandRunner(pool, lookupOid),
+                closePool: () => pool.end(),
+                worker: getEsqlateQueueWorker(pool, lookupOid),
             };
         });
 }

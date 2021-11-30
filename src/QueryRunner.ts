@@ -1,5 +1,5 @@
 import { EsqlateArgument, EsqlateDefinition, EsqlateResult } from "esqlate-lib";
-import { EsqlateQueue } from "esqlate-queue";
+import { EsqlateQueue, EsqlateQueueWorker } from "esqlate-queue";
 
 import { Logger } from "./logger";
 import MySQLQueryRunner from "./MySQLQueryRunner";
@@ -43,12 +43,15 @@ export type DemandRunner = (
     definition: EsqlateDefinition,
     serverParameters: EsqlateArgument[],
     userParameters: EsqlateArgument[],
-    ) => Promise<EsqlateResult>;
+) => Promise<EsqlateResult>;
 
+export type PoolCloser = () => Promise<void>;
 
 export interface DatabaseInterface {
     queue: EsqlateQueue<QueueItem, ResultCreated>;
     demand: DemandRunner;
+    closePool: PoolCloser;
+    worker: EsqlateQueueWorker<QueueItem, ResultCreated>;
 }
 
 

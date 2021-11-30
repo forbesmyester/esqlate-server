@@ -64,7 +64,12 @@ export class EsqlateErrorSqlExecution extends EsqlateError {
 }
 
 
-const logger: Logger = (level: Level, component: Component, message: string, err?: Error) => {
+enum LogTo {
+    STDOUT,
+    STDERR,
+}
+
+const loggerImpl = (logTo: LogTo, level: Level, component: Component, message: string, err?: Error) => {
     if (err && !(err instanceof EsqlateError)) {
         level = Level.ERROR;
     }
@@ -72,27 +77,37 @@ const logger: Logger = (level: Level, component: Component, message: string, err
     if (err) {
         out = { ...out, err };
     }
-    // tslint:disable:no-console
+
+    function writer(s: string) {
+        if (logTo === LogTo.STDERR) {
+            process.stderr.write(s + "\n");
+            return;
+        }
+        process.stdout.write(s + "\n");
+    }
+
     switch (level) {
         case "DEBUG":
-            console.debug(`${level} ${component}: ` + JSON.stringify(out));
+            writer(`${level} ${component}: ` + JSON.stringify(out));
             break;
         case "LOG":
-            console.log(`${level} ${component}: ` + JSON.stringify(out));
+            writer(`${level} ${component}: ` + JSON.stringify(out));
             break;
         case "WARN":
-            console.warn(`${level} ${component}: ` + JSON.stringify(out));
+            writer(`${level} ${component}: ` + JSON.stringify(out));
             break;
         case "INFO":
-            console.info(`${level} ${component}: ` + JSON.stringify(out));
+            writer(`${level} ${component}: ` + JSON.stringify(out));
             break;
         default:
-            console.error(`${level} ${component}: ` + JSON.stringify(out));
+            writer(`${level} ${component}: ` + JSON.stringify(out));
             if (level !== "ERROR") {
                 process.exit(1);
             }
     }
-    // tslint:enable:no-console
 };
 
+export const stderrLogger: Logger = loggerImpl.bind(null, LogTo.STDERR);
+
+const logger: Logger = loggerImpl.bind(null, LogTo.STDOUT)
 export default logger;

@@ -285,5 +285,16 @@ export default function getQueryRunner(parallelism: number = 1, logger: Logger):
     return Promise.resolve({
         queue: getEsqlateQueue(getEsqlateQueueWorker(pool), parallelism),
         demand: getDemandRunner(pool),
+        closePool: () => {
+            return new Promise((resolve, reject) => {
+                pool.end((err) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    resolve();
+                });
+            });
+        },
+        worker: getEsqlateQueueWorker(pool),
     });
 }

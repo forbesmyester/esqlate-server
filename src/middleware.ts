@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from "express";
 import fs, {ReadStream} from "fs";
 import JSON5 from "json5";
 import { join as pathJoin } from "path";
+import { createRequest as createRequestFunc, CreateRequestDeps, getLoadDefinition, getVariables, Input, NeedsDemandRunner, NeedsLoadDefinition, NeedsPersistence, NeedsServerVariableRequester, NeedsServiceInformation, ServiceInformation } from "./functions";
 
 import Ajv from "ajv";
 import { EsqlateArgument, EsqlateCompleteResultOtherFormat, EsqlateDefinition, EsqlateRequestCreation, EsqlateResult } from "esqlate-lib";
@@ -13,27 +14,9 @@ import { EsqlateError, EsqlateErrorEnum, EsqlateErrorInvalidDefinition, EsqlateE
 import { Persistence, safeDefinitionName, safeId } from "./persistence";
 import { DemandRunner, QueueItem, ResultCreated } from "./QueryRunner";
 
-import * as schemaRequestCreation from "esqlate-lib/res/schema-request-creation.json";
-
 // TODO: Move types to seperate files
 
 const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY as string;
-
-export interface ServiceInformation {
-    getApiRoot: (req: Request) => string;
-}
-
-export interface ServerVariableRequester {
-    listServerVariable: (req: Request) => string[];
-    getServerVariable: (req: Request, name: string) => EsqlateArgument["value"];
-}
-
-interface NeedsPersistence { persistence: Persistence; }
-interface NeedsServiceInformation { serviceInformation: ServiceInformation; }
-interface NeedsQueue { queue: EsqlateQueue<QueueItem, ResultCreated>; }
-interface NeedsServerVariableRequester { serverVariableRequester: ServerVariableRequester; }
-
-interface NeedsDemandRunner { demandRunner: DemandRunner; }
 
 interface Local { [k: string]: any; }
 
@@ -41,14 +24,6 @@ function setRequestLocal(req: Request, k: string, v: any) {
     const other: Local = getRequestLocal(req);
     other[k] = v;
     Object.assign(req, { local: other });
-}
-
-function getRequestLocalKey(k: string, r: Request): any {
-    const l = getRequestLocal(r);
-    if (!l.hasOwnProperty(k)) {
-        throw new EsqlateErrorMissingLocal(`${k}`);
-    }
-    return l[k];
 }
 
 function getRequestLocal(r: Request): Local {
@@ -60,49 +35,12 @@ export function captureRequestStart(req: Request, _res: Response, next: NextFunc
     next();
 }
 
-export function loadDefinition(req: Request, _res: Response, next: NextFunction) {
-
-    assert(req.params.hasOwnProperty("definitionName"), "missing request param definitionName");
-
-    const definitionName: string = safeDefinitionName(req.params.definitionName);
-
-    let errCount = 0;
-
-    function process(err: any, data: string) {
-        if (errCount === -1) { return; }
-        if ((err) && (errCount++ > 0)) {
-            return next(new EsqlateErrorMissingDefinition(`${definitionName}`));
-        }
-        if (err) { return errCount = errCount + 1; }
-        let j: EsqlateDefinition;
-        try {
-            j = JSON5.parse(data);
-        } catch (e) {
-            return next(new EsqlateErrorInvalidDefinition(`${definitionName}`));
-        }
-        setRequestLocal(req, "definition", j);
-        next();
-    }
-
-
-    fs.readFile(
-        pathJoin(DEFINITION_DIRECTORY, definitionName + ".json5"),
-        { encoding: "utf8" },
-        process,
-    );
-    fs.readFile(
-        pathJoin(DEFINITION_DIRECTORY, definitionName + ".json"),
-        { encoding: "utf8" },
-        process,
-    );
-
-}
-
 function logError(logger: Logger, err: Error) {
 
     if (err instanceof EsqlateError) {
-        logger(Level.INFO, err.code, err.message, err);
+        return logger(Level.INFO, err.code, err.message, err);
     }
+    logger(Level.ERROR, "UNKNOWN", err.message, err);
 
 }
 
@@ -128,6 +66,7 @@ export function getCaptureRequestErrorHandler(logger: Logger) {
             }
         }
         if (err) {
+            res.status(500).json({ error: "UNEXPECTED ERROR: No Message" }).end();
             logError(logger, err);
             return;
         }
@@ -148,9 +87,17 @@ export function getCaptureRequestEnd(logger: Logger) {
 }
 
 
-export function getDefinition(req: Request, res: Response, next: NextFunction) {
-    res.json(getRequestLocalKey("definition", req));
-    next();
+export function getGetDefinition({ loadDefinition }: NeedsLoadDefinition) {
+    return function getDefinition(req: Request, res: Response, next: NextFunction) {
+        loadDefinition(req.params.definitionName)
+            .then((def) => {
+                res.json(def);
+                next();
+            })
+            .catch((err) => {
+                next(err);
+            });
+    }
 }
 
 
@@ -193,7 +140,7 @@ export function getRequest({ persistence, serviceInformation: { getApiRoot } }: 
             .then((resultId) => {
                 if (resultId) {
                     const location = pathJoin(
-                        getApiRoot(req),
+                        getApiRoot(),
                         "result",
                         definitionName,
                         resultId,
@@ -212,20 +159,23 @@ export function getRequest({ persistence, serviceInformation: { getApiRoot } }: 
     };
 }
 
-export function runDemand({ serverVariableRequester, serviceInformation: { getApiRoot }, demandRunner }: NeedsServiceInformation & NeedsDemandRunner & NeedsServerVariableRequester) {
+export function runDemand({ serverVariableRequester, serviceInformation: { getApiRoot }, demandRunner, loadDefinition }: NeedsServiceInformation & NeedsDemandRunner & NeedsServerVariableRequester & NeedsLoadDefinition) {
 
-    return async function runDemandImpl(req: Request, res: Response, next: NextFunction) {
+    return async function runDemandImpl(
+        req: Request & Input<EsqlateRequestCreation>,
+        res: Response, next: NextFunction) {
+
+        const definition: EsqlateDefinition = await loadDefinition(req.params.definitionName);
 
         let args: EsqlateArgument[];
         try {
             args = getVariables(
                 { getApiRoot },
                 serverVariableRequester,
+                definition.parameters,
                 req,
             );
         } catch (e) { return next(e); }
-
-        const definition: EsqlateDefinition = getRequestLocalKey("definition", req);
 
         // TODO: Pass in server args propertly
         demandRunner(definition, [], args)
@@ -233,112 +183,19 @@ export function runDemand({ serverVariableRequester, serviceInformation: { getAp
                 res.json(result);
                 next();
             })
-            .catch((err) => { next(err); });
+            .catch((err: Error) => { next(err); });
 
     };
 
 }
 
-function getVariables({ getApiRoot }: ServiceInformation, serverVariableRequester: ServerVariableRequester, req: Request): EsqlateArgument[] {
 
-    function get(): EsqlateArgument[] {
-        const serverVariables: EsqlateArgument[] = serverVariableRequester.listServerVariable(req).map(
-            (name) => ({ name, value: serverVariableRequester.getServerVariable(req, name) }),
-        );
+export function createRequest(createRequestDeps: CreateRequestDeps) {
 
-        return serverVariables.reduce(
-            (acc: EsqlateArgument[], sv) => {
-                const r = acc.filter((a) => !(("" + a.name) === ("" + sv.name)));
-                r.push(sv);
-                return r;
-            },
-            (req.body as EsqlateRequestCreation).arguments.concat([]),
-        );
-    }
+    return function createRequestImpl(req: Request & Input<EsqlateRequestCreation>, res: Response, next: NextFunction) {
 
-    function getMissingVariables(args: EsqlateArgument[]) {
-        const available = new Set(args.map((rb) => rb.name));
-        return definition.parameters
-            .filter((reqd) => {
-                return !available.has(reqd.name);
-            })
-            .map(({ name }) => name);
-    }
-
-
-    assert(req.params.hasOwnProperty("definitionName"), "Missing request param definitionName");
-
-    const definition: EsqlateDefinition = getRequestLocalKey("definition", req);
-    const definitionName = safeDefinitionName(req.params.definitionName);
-    const valid = ajvValidateRequestCreation(req.body);
-
-    if (!valid) {
-        const errors = ajvValidateRequestCreation.errors;
-        const msg = pathJoin(
-            getApiRoot(req),
-            "request",
-            definitionName,
-        ) + ": " + JSON.stringify(errors);
-        throw new EsqlateErrorInvalidRequestBody(msg);
-    }
-
-    const variables = get();
-
-    const missingVariables = getMissingVariables(variables);
-    if (missingVariables.length) {
-        const errorMsg = "Missing Variables: " + JSON.stringify(missingVariables);
-        const msg = pathJoin(
-            getApiRoot(req),
-            "request",
-            definitionName,
-        ) + ": " + JSON.stringify(errorMsg);
-        throw new EsqlateErrorMissingVariables(msg);
-    }
-
-    return variables;
-
-}
-
-const ajv = new Ajv();
-const ajvValidateRequestCreation = ajv.compile(schemaRequestCreation);
-
-export function createRequest({ serverVariableRequester, persistence, queue, serviceInformation: { getApiRoot } }: NeedsPersistence & NeedsServiceInformation & NeedsQueue & NeedsServerVariableRequester) {
-
-    return function createRequestImpl(req: Request, res: Response, next: NextFunction) {
-
-        let variables: EsqlateArgument[];
-        try {
-            variables = getVariables(
-                { getApiRoot },
-                serverVariableRequester,
-                req,
-            );
-        } catch (e) { return next(e); }
-
-        const definition: EsqlateDefinition = getRequestLocalKey("definition", req);
-        const definitionName = safeDefinitionName(req.params.definitionName);
-
-        randCryptoString(8)
-            .then((requestId) => {
-                return persistence.createRequest(
-                    definitionName,
-                    requestId,
-                    variables,
-                ).then(() => requestId);
-            })
-            .then((requestId) => {
-                // TODO: Pass in server variables properly
-                const queueItem: QueueItem = {
-                    definition,
-                    requestId,
-                    serverParameters: [],
-                    userParameters: variables,
-                };
-                queue.push(queueItem);
-                return queueItem;
-            })
-            .then((qi: QueueItem) => {
-                const loc = pathJoin(getApiRoot(req), "request", definitionName, qi.requestId);
+        createRequestFunc(createRequestDeps, req)
+            .then((loc) => {
                 res.setHeader("Location", loc);
                 res.status(202).json({ location: loc });
                 next();
@@ -377,7 +234,14 @@ export function getResultCsv({ persistence }: NeedsPersistence) {
     };
 }
 
-export function getResult({ persistence, serviceInformation: { getApiRoot } }: NeedsPersistence & NeedsServiceInformation) {
+export function esqlateResultEnsureFullFormatUrl({ getApiRoot }: ServiceInformation, definitionName: string, resultId: string, otherFormat: EsqlateCompleteResultOtherFormat): EsqlateCompleteResultOtherFormat {
+    return {
+        ...otherFormat,
+        location: pathJoin(getApiRoot(), "result", definitionName, resultId) + ".csv",
+    };
+}
+
+export function getResult({ persistence, serviceInformation }: NeedsPersistence & NeedsServiceInformation) {
     return function getResultImpl(req: Request, res: Response, next: NextFunction) {
 
         assert(req.params.hasOwnProperty("definitionName"), "Missing request param definitionName");
@@ -386,11 +250,8 @@ export function getResult({ persistence, serviceInformation: { getApiRoot } }: N
         const definitionName = safeDefinitionName(req.params.definitionName);
         const resultId = safeId(req.params.resultId);
 
-        function mapper(otherFormat: EsqlateCompleteResultOtherFormat): EsqlateCompleteResultOtherFormat {
-            return {
-                ...otherFormat,
-                location: pathJoin(getApiRoot(req), "result", definitionName, resultId) + ".csv",
-            };
+        const mapper = (result: EsqlateCompleteResultOtherFormat) => {
+            return esqlateResultEnsureFullFormatUrl(serviceInformation, definitionName, resultId, result);
         }
 
         persistence.getResult(definitionName, resultId)
