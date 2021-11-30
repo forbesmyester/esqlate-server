@@ -52,11 +52,6 @@ export function pgQuery(statement: EsqlateStatementNormalized, inputValues: { [k
             acc.values = acc.values.concat(getSqlValue(ed));
             acc.knownValues = acc.knownValues.concat([ed.name]);
         }
-console.log("SQL: ", {
-            text: acc.text + "$" + (acc.knownValues.indexOf(ed.name) + 1),
-            values: acc.values,
-            knownValues: acc.knownValues,
-        });
         return {
             text: acc.text + "$" + (acc.knownValues.indexOf(ed.name) + 1),
             values: acc.values,
@@ -80,20 +75,39 @@ console.log("SQL: ", {
 // Private
 export function getQuery(normalizedStatement: EsqlateStatementNormalized, serverParameters: EsqlateArgument[], parameters: EsqlateArgument[]) {
 
+    function getEsqlateStatementNullableVariables() {
+        return Array.from(new Set(normalizedStatement
+            .filter((ns) => ns && (ns as EsqlateParameter).empty_string_is_null)
+            .map((ns) => (ns as EsqlateParameter).name)));
+    }
+
     function esqlateRequestCreationParameterToOb(acc: { [k: string]: any }, parameter: EsqlateArgument): { [k: string]: any } {
         const merger: { [k: string]: any } = {};
         merger[parameter.name] = parameter.value;
         return { ...acc, ...merger };
     }
 
-    const inputValues: { [k: string]: any } = serverParameters.reduce(
+    const nullable = getEsqlateStatementNullableVariables();
+
+    const sqlValuesFromUser: { [k: string]: any } = serverParameters.reduce(
         esqlateRequestCreationParameterToOb,
         (parameters || []).reduce(
             esqlateRequestCreationParameterToOb,
             {},
         ),
     );
-    return pgQuery(normalizedStatement, inputValues);
+
+    const sqlValues = nullable
+        .filter((n) => !sqlValuesFromUser.hasOwnProperty(n))
+        .reduce(
+            (acc, n) => {
+                acc[n] = null;
+                return acc;
+            },
+            sqlValuesFromUser
+        );
+
+    return pgQuery(normalizedStatement, sqlValues);
 }
 
 

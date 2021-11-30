@@ -7,17 +7,19 @@
     {
       "name": "search_string",
       "type": "string",
-      "highlight_fields": ["contact_name", "company_name"]
+      "highlight_fields": ["contact_name", "company_name"],
+      "empty_string_is_null": true
     },
     {
       "display_field": "display",
       "name": "country",
       "type": "select",
+      "empty_string_is_null": true,
       "definition": "customer_country_count",
       "value_field": "country"
     }
   ],
-  "statement": "SELECT customer_id, company_name, contact_name  FROM customers\nWHERE\n  country = $country AND\n  (\n    LOWER(company_name) LIKE CONCAT('%', LOWER($search_string), '%') OR\n    LOWER(contact_name) LIKE CONCAT('%', LOWER($search_string), '%')\n  )",
+  "statement": "SELECT customer_id, company_name, contact_name  FROM customers\nWHERE\n  country = coalesce($country, country) AND\n  (\n    LOWER(company_name) LIKE CONCAT('%', LOWER($search_string), '%') OR\n    LOWER(contact_name) LIKE CONCAT('%', LOWER($search_string), '%')\n  )",
   "row_links": [
     { "href": "#order_list/request?customer_id=${customer_id}", "text": "Orders from ${company_name}" }
   ]

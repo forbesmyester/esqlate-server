@@ -51,6 +51,7 @@ export PGHOST=127.0.0.1
 export PGUSER=postgres
 export PGPASSWORD=postgres
 export PGDATABASE=postgres
+# export PGPORT=5433
 curl https://raw.githubusercontent.com/pthom/northwind_psql/5f9ba34aa1d980392685042037b0b1112d01bd32/northwind.sql | psql
 
 # I Noticed that there were no `timestamp` / `timestamp with timezone` fields in
@@ -278,6 +279,164 @@ $ curl -H "Content-Type: application/json" ${URL_ROOT}/result/shipper_search/FGA
     }
   ]
 }
+```
+
+## Command Line Interface
+
+> npm run-script build
+
+> node dist/cmd.js
+
+```
+cmd.ts [command]
+
+Commands:
+  cmd.ts serve            Listen on STDIN and output to STDOUT
+  cmd.ts definition-list  Lists all available definition
+  cmd.ts definition       Gets the details of an individual definition
+  cmd.ts request          Start a request for a query
+  cmd.ts result           Gets the result preview and full file status
+  cmd.ts request-status   Start a request for a query
+  cmd.ts process          Process a particular request id
+  cmd.ts demand           Start a request for a query
+  cmd.ts queue            Lists all requests that still need processing
+
+Options:
+  --help     Show help                                                 [boolean]
+  --version  Show version number                                       [boolean]
+```
+
+> node dist/cmd.js definition-list | jq .
+
+```
+[
+    {
+        "title":"Customers per country",
+        "name":"customer_country_count"
+    },
+    {
+        "title":"Customer search",
+        "name":"customer_search"
+    },
+    {
+        "title":"Customer search by name only",
+        "name":"customer_search_by_name_only"
+    },
+    {
+        "title":"Order list",
+        "name":"order_list"
+    },
+    {
+        "title":"Order list by time",
+        "name":"order_list_by_time"
+    },
+    {
+        "title":"Product search",
+        "name":"product_search"
+    },
+    {
+        "title":"Search for Shippers",
+        "name":"shipper_search"
+    }
+]
+```
+
+> node dist/cmd.js definition
+
+```
+cmd.ts definition
+
+Gets the details of an individual definition
+
+Options:
+      --help     Show help                                             [boolean]
+      --version  Show version number                                   [boolean]
+  -n, --name                                                 [string] [required]
+
+Missing required argument: n
+```
+
+> node dist/cmd.js definition -n customer_search
+
+```
+{
+  "name": "customer_search",
+  "title": "Customer search",
+  "description": "List customers using a substring search",
+  "statement_type": "SELECT",
+  "parameters": [
+    {
+      "name": "search_string",
+      "type": "string",
+      "highlight_fields": [
+        "contact_name",
+        "company_name"
+      ]
+    },
+    {
+      "display_field": "display",
+      "name": "country",
+      "type": "select",
+      "definition": "customer_country_count",
+      "value_field": "country"
+    }
+  ],
+  "statement": "SELECT customer_id, company_name, contact_name  FROM customers\nWHERE\n  country = $country AND\n  (\n    LOWER(company_name) LIKE CONCAT('%', LOWER($search_string), '%') OR\n    LOWER(contact_name) LIKE CONCAT('%', LOWER($search_string), '%')\n  )",
+  "row_links": [
+    {
+      "href": "#order_list/request?customer_id=${customer_id}",
+      "text": "Orders from ${company_name}"
+    }
+  ]
+}
+
+> node dist/cmd.js request -n customer_search -p '["search_string", "car"]'
+
+```
+{ "location": "/request/customer_search/lbJJluOw" }
+```
+
+> node_modules/.bin/tsc && node dist/cmd.js process -n customer_search -i lbJJluOw
+
+```
+"/result/customer_search/lbJJluOw9isG"
+```
+
+> node dist/cmd.js result -n customer_search -i lbJJluOw9isG
+
+```
+{
+  "fields": [
+    { "name": "customer_id", "type": "bpchar" },
+    { "name": "company_name", "type": "varchar" },
+    { "name": "contact_name", "type": "varchar" }
+  ],
+  "rows": [
+    [ "FRANR", "France restauration", "Carine Schmitt" ],
+    [ "HANAR", "Hanari Carnes", "Mario Pontes" ],
+    [ "HILAA", "HILARION-Abastos", "Carlos Hernández" ],
+    [ "LILAS", "LILA-Supermercado", "Carlos González" ],
+    [ "QUEEN", "Queen Cozinha", "Lúcia Carvalho" ],
+    [ "RICAR", "Ricardo Adocicados", "Janete Limeira" ],
+    [ "SUPRD", "Suprêmes délices", "Pascale Cartrain" ]
+  ],
+  "full_data_set": true,
+  "status": "complete",
+  "full_format_urls": [ { "type": "text/csv", "location": "/result/customer_search/lbJJluOw9isG.csv" } ]
+}
+```
+
+> node dist/cmd.js result -n customer_search -i lbJJluOw9isG.csv
+
+```
+"customer_id","company_name","contact_name"
+"FRANR","France restauration","Carine Schmitt"
+"HANAR","Hanari Carnes","Mario Pontes"
+"HILAA","HILARION-Abastos","Carlos Hernández"
+"LILAS","LILA-Supermercado","Carlos González"
+"QUEEN","Queen Cozinha","Lúcia Carvalho"
+"RICAR","Ricardo Adocicados","Janete Limeira"
+"SUPRD","Suprêmes délices","Pascale Cartrain"
 ```
 
 ## Version History
