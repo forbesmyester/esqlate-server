@@ -5,22 +5,25 @@
   "main": "index.js",
   "dependencies": {
     "@types/mysql": "^2.15.8",
+    "@types/open": "^6.2.1",
     "@types/yargs": "^15.0.7",
     "ajv": "^6.10.2",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
     "esqlate-lib": "^1.0.8",
-    "esqlate-promise-returning-function-to-generator": "^1.0.0",
+    "esqlate-promise-returning-function-to-generator": "^1.0.1",
     "esqlate-queue": "^2.0.0",
     "express": "^4.17.1",
     "json2csv": "^4.5.4",
     "json5": "^2.1.1",
     "mysql": "^2.18.1",
+    "open": "^7.3.0",
     "pg": "^7.12.1",
     "pg-cursor": "^2.0.0",
     "pg-native": "^3.0.0",
     "random-crypto-string": "^1.0.1",
-    "yargs": "^16.0.3"
+    "typescript-language-server": "^0.8.1",
+    "yargs": "^17.3.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.6",
