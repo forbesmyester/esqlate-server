@@ -17,7 +17,7 @@ ENV PGDATABASE "postgres"
 ENV PGHOST "127.0.0.1"
 
 WORKDIR /esqlate-server
-COPY package.json tsconfig.json tslint.json package-lock.json ./
+COPY package.json tsconfig.json tslint.json ./
 
 RUN npm install
 
