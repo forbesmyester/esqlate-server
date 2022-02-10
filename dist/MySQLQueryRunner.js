@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getQuery = void 0;
 const esqlate_lib_1 = require("esqlate-lib");
 const esqlate_promise_returning_function_to_generator_1 = __importDefault(require("esqlate-promise-returning-function-to-generator"));
 const esqlate_queue_1 = __importDefault(require("esqlate-queue"));
@@ -80,16 +81,14 @@ function demandRunnerImpl(pool, inSql, values) {
         const sql = mysql_1.format(inSql, values);
         const fieldsFound = new Set();
         const fields = [];
-        const qry = {
-            sql,
-            typeCast: (field, next) => {
-                if (!fieldsFound.has(field.name)) {
-                    fields.push({ name: field.name, type: field.type });
-                    fieldsFound.add(field.name);
-                }
-                return next();
-            },
+        let typeCast = (field, next) => {
+            if (!fieldsFound.has(field.name)) {
+                fields.push({ name: field.name, type: field.type });
+                fieldsFound.add(field.name);
+            }
+            return next();
         };
+        const qry = { sql, typeCast };
         pool.query(qry, (err, res) => {
             if (err) {
                 return reject(err);

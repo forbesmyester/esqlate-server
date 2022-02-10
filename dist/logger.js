@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.EsqlateErrorSqlExecution = exports.EsqlateErrorNotFoundPersistence = exports.EsqlateErrorMissingVariables = exports.EsqlateErrorInvalidRequestBody = exports.EsqlateErrorMissingLocal = exports.EsqlateErrorMissingDefinition = exports.EsqlateErrorInvalidDefinition = exports.EsqlateErrorInvalidRequestParameter = exports.EsqlateError = exports.EsqlateErrorEnum = exports.Level = void 0;
 var Level;
 (function (Level) {
     Level["FATAL"] = "FATAL";

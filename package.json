@@ -1,6 +1,6 @@
 {
   "name": "esqlate-server",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Server for the Esqlate project",
   "main": "index.js",
   "dependencies": {
