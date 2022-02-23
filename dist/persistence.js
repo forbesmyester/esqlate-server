@@ -1,28 +1,15 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FilesystemPersistence = exports.safeId = exports.safeDefinitionName = exports.ResultExistance = void 0;
 const logger_1 = require("./logger");
 const assert_1 = __importDefault(require("assert"));
 const fs_1 = require("fs");
@@ -35,14 +22,15 @@ var ResultExistance;
 })(ResultExistance = exports.ResultExistance || (exports.ResultExistance = {}));
 function safeDefinitionName(s) {
     if (!("" + s).match(/^_?[a-z][a-z0-9_]{0,99}$/)) {
-        throw new Error(`Path element '${s}' includes invalid characters`);
+        throw new Error(`safeDefinitionName: Path element '${s}' includes invalid characters`);
     }
     return ("" + s);
 }
 exports.safeDefinitionName = safeDefinitionName;
 function safeId(s) {
-    if (!("" + s).match(/^[a-zA-Z0-9_]{0,99}$/)) {
-        throw new Error(`Path element '${s}' includes invalid characters`);
+    // if (!("" + s).match(/^[a-zA-Z0-9_]{0,99}(\.((csv)|(json)))?$/)) {
+    if (!("" + s).match(/^[a-zA-Z0-9_]{0,99}(\.((csv)|(json)))?$/)) {
+        throw new Error(`safeId: Path element '${s}' includes invalid characters`);
     }
     return ("" + s);
 }
@@ -102,15 +90,22 @@ class FilesystemPersistence {
         })
             .then(() => resultId);
     }
-    createRequest(definitionName, requestId, values) {
-        assert_1.default(requestId.length === this.pathSeperator2, `Request Ids must be ${this.pathSeperator2} characters long`);
-        const filename = [
+    getRequestFilename(definitionName, requestId) {
+        return [
             this.storagePath,
             safeDefinitionName(definitionName),
             safeId(requestId).substring(0, this.pathSeperator1),
             safeId(requestId).substring(this.pathSeperator1),
             "request.json",
         ];
+    }
+    getRequest(definitionName, requestId) {
+        const fnArray = this.getRequestFilename(definitionName, requestId);
+        return this.readFile(path_1.join(...fnArray)).then((s) => JSON.parse(s));
+    }
+    createRequest(definitionName, requestId, values) {
+        assert_1.default(requestId.length === this.pathSeperator2, `Request Ids must be ${this.pathSeperator2} characters long`);
+        const filename = this.getRequestFilename(definitionName, requestId);
         return new Promise((resolve, reject) => {
             const writeData = {
                 params: values,
@@ -124,9 +119,12 @@ class FilesystemPersistence {
             });
         });
     }
-    async getResultCsvStream(definitionName, resultId) {
+    getResultCsvFilename(definitionName, resultId) {
         const filename = path_1.join.apply(null, this.getResultFilename(definitionName, resultId));
-        const csvFilename = filename.replace(/\.json$/, ".csv");
+        return filename.replace(/\.json$/, ".csv");
+    }
+    async getResultCsvStream(definitionName, resultId) {
+        const csvFilename = this.getResultCsvFilename(definitionName, resultId);
         const csvReadable = await this.access(csvFilename);
         if (!csvReadable) {
             throw new logger_1.EsqlateErrorNotFoundPersistence(`Could not load result ${definitionName}/${resultId}`);
@@ -311,6 +309,106 @@ class FilesystemPersistence {
                 resolve(files);
             });
         });
+    }
+    async getQueue(definitionNames) {
+        function isDefinitionName(maybeDirname) {
+            return definitionNames.some((dn) => dn == maybeDirname.child);
+        }
+        function flatten(x) {
+            return [].concat(...x);
+        }
+        function listingItemToFullPath(li) {
+            return path_1.join(li.parentDir, li.child);
+        }
+        // const readDirs: (dirs: string[]) => Promise<ListingItem[]> = (dirs: string[]) => {
+        function readDirsImpl(readdir, dirs) {
+            let proms = Promise.all(dirs.map((d) => {
+                return readdir(d)
+                    .then((files) => {
+                    return files.map((f) => {
+                        return { parentDir: d, child: f };
+                    });
+                })
+                    .catch((e) => {
+                    if (e.code == "ENOENT") {
+                        return [];
+                    }
+                    if (e.code == "ENOTDIR") {
+                        return [];
+                    }
+                    return [];
+                    // throw e;
+                });
+            }));
+            return proms.then((ps) => flatten(ps));
+        }
+        function groupListingItem(items) {
+            let m = new Map();
+            for (const item of items) {
+                let ar = m.get(item.parentDir) || [];
+                ar.push(item);
+                m.set(item.parentDir, ar);
+            }
+            let r = [];
+            for (const [parentDir, items] of m) {
+                let toAdd = { parentDir, child: [] };
+                for (const item of items) {
+                    toAdd.child.push(item.child);
+                }
+                r.push(toAdd);
+            }
+            return r;
+        }
+        function noRequest({ child }) {
+            return child.indexOf("request.json") > -1;
+        }
+        function hasResults({ child }) {
+            let ids = new Set();
+            for (const c of child) {
+                let end = '';
+                if (c.substr(-11) == '-result.csv') {
+                    end = '-result.csv';
+                }
+                if (c.substr(-12) == '-result.json') {
+                    end = '-result.json';
+                }
+                let start = c.substr(0, c.length - end.length);
+                if (ids.has(start)) {
+                    return true;
+                }
+                if (end) {
+                    ids.add(start);
+                }
+            }
+            return false;
+        }
+        function not(f) {
+            return function (a) {
+                return !f(a);
+            };
+        }
+        function extractRequestId(acc, { parentDir }) {
+            let m = parentDir.match(/([^\/]{1,128})\/([^\/]{1,128})\/([^\/]{1,128})$/);
+            if (!m) {
+                return acc;
+            }
+            try {
+                acc.push({ definition: m[1], id: safeId(m[2] + m[3]) });
+            }
+            catch (_e) {
+                // pass through
+            }
+            return acc;
+        }
+        const readDirs = readDirsImpl.bind(null, this.readdir);
+        const definitions = await readDirs([this.storagePath]);
+        const idPart1 = await readDirs(definitions.filter(isDefinitionName).map(listingItemToFullPath));
+        const idpart2 = await readDirs(idPart1.map(listingItemToFullPath));
+        const files = await readDirs(idpart2.map(listingItemToFullPath));
+        return groupListingItem(files)
+            .filter(noRequest)
+            .filter(not(hasResults))
+            .reduce(extractRequestId, []);
     }
 }
 exports.FilesystemPersistence = FilesystemPersistence;

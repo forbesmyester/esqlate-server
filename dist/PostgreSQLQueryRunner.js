@@ -1,28 +1,15 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
     return result;
 };
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getEsqlateErrorResult = exports.format = exports.getQuery = exports.pgQuery = void 0;
 const pg = __importStar(require("pg"));
 const random_crypto_string_1 = __importDefault(require("random-crypto-string"));
 const esqlate_lib_1 = require("esqlate-lib");
@@ -68,13 +55,25 @@ function pgQuery(statement, inputValues) {
 exports.pgQuery = pgQuery;
 // Private
 function getQuery(normalizedStatement, serverParameters, parameters) {
+    function getEsqlateStatementNullableVariables() {
+        return Array.from(new Set(normalizedStatement
+            .filter((ns) => ns && ns.empty_string_is_null)
+            .map((ns) => ns.name)));
+    }
     function esqlateRequestCreationParameterToOb(acc, parameter) {
         const merger = {};
         merger[parameter.name] = parameter.value;
         return { ...acc, ...merger };
     }
-    const inputValues = serverParameters.reduce(esqlateRequestCreationParameterToOb, (parameters || []).reduce(esqlateRequestCreationParameterToOb, {}));
-    return pgQuery(normalizedStatement, inputValues);
+    const nullable = getEsqlateStatementNullableVariables();
+    const sqlValuesFromUser = serverParameters.reduce(esqlateRequestCreationParameterToOb, (parameters || []).reduce(esqlateRequestCreationParameterToOb, {}));
+    const sqlValues = nullable
+        .filter((n) => !sqlValuesFromUser.hasOwnProperty(n))
+        .reduce((acc, n) => {
+        acc[n] = null;
+        return acc;
+    }, sqlValuesFromUser);
+    return pgQuery(normalizedStatement, sqlValues);
 }
 exports.getQuery = getQuery;
 // Private
@@ -199,12 +198,11 @@ function getEsqlateQueueWorker(pool, lookupOid) {
 }
 function getQueryRunner(parallelism = 1, logger) {
     const pool = new pg.Pool();
-    let connectionCount = 0;
     pool.on("connect", () => {
-        logger(logger_1.Level.INFO, "DATABASE", `Database Connection Count Incremented: ${++connectionCount} Connections`);
+        logger(logger_1.Level.INFO, "DATABASE", `Database Connection Count Incremented: ${pool.totalCount} Connections (with ${pool.waitingCount} waiting and ${pool.idleCount} idle)`);
     });
-    pool.on("connect", () => {
-        logger(logger_1.Level.INFO, "DATABASE", `Database Connection Count Decremented: ${--connectionCount} Connections`);
+    pool.on("remove", () => {
+        logger(logger_1.Level.INFO, "DATABASE", `Database Connection Count Decremented: ${pool.totalCount} Connections (with ${pool.waitingCount} waiting and ${pool.idleCount} idle)`);
     });
     pool.on("error", (e) => {
         logger(logger_1.Level.FATAL, "DATABASE", `Database Error: ${e.message}`);
@@ -214,6 +212,8 @@ function getQueryRunner(parallelism = 1, logger) {
         return {
             queue: esqlate_queue_1.default(getEsqlateQueueWorker(pool, lookupOid), parallelism),
             demand: getDemandRunner(pool, lookupOid),
+            closePool: () => pool.end(),
+            worker: getEsqlateQueueWorker(pool, lookupOid),
         };
     });
 }

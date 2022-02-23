@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EsqlateErrorSqlExecution = exports.EsqlateErrorNotFoundPersistence = exports.EsqlateErrorMissingVariables = exports.EsqlateErrorInvalidRequestBody = exports.EsqlateErrorMissingLocal = exports.EsqlateErrorMissingDefinition = exports.EsqlateErrorInvalidDefinition = exports.EsqlateErrorInvalidRequestParameter = exports.EsqlateError = exports.EsqlateErrorEnum = exports.Level = void 0;
 var Level;
 (function (Level) {
     Level["FATAL"] = "FATAL";
@@ -61,7 +60,12 @@ class EsqlateErrorSqlExecution extends EsqlateError {
     constructor(msg) { super(EsqlateErrorEnum.SqlExecution, msg); }
 }
 exports.EsqlateErrorSqlExecution = EsqlateErrorSqlExecution;
-const logger = (level, component, message, err) => {
+var LogTo;
+(function (LogTo) {
+    LogTo[LogTo["STDOUT"] = 0] = "STDOUT";
+    LogTo[LogTo["STDERR"] = 1] = "STDERR";
+})(LogTo || (LogTo = {}));
+const loggerImpl = (logTo, level, component, message, err) => {
     if (err && !(err instanceof EsqlateError)) {
         level = Level.ERROR;
     }
@@ -69,26 +73,33 @@ const logger = (level, component, message, err) => {
     if (err) {
         out = { ...out, err };
     }
-    // tslint:disable:no-console
+    function writer(s) {
+        if (logTo === LogTo.STDERR) {
+            process.stderr.write(s + "\n");
+            return;
+        }
+        process.stdout.write(s + "\n");
+    }
     switch (level) {
         case "DEBUG":
-            console.debug(`${level} ${component}: ` + JSON.stringify(out));
+            writer(`${level} ${component}: ` + JSON.stringify(out));
             break;
         case "LOG":
-            console.log(`${level} ${component}: ` + JSON.stringify(out));
+            writer(`${level} ${component}: ` + JSON.stringify(out));
             break;
         case "WARN":
-            console.warn(`${level} ${component}: ` + JSON.stringify(out));
+            writer(`${level} ${component}: ` + JSON.stringify(out));
             break;
         case "INFO":
-            console.info(`${level} ${component}: ` + JSON.stringify(out));
+            writer(`${level} ${component}: ` + JSON.stringify(out));
             break;
         default:
-            console.error(`${level} ${component}: ` + JSON.stringify(out));
+            writer(`${level} ${component}: ` + JSON.stringify(out));
             if (level !== "ERROR") {
                 process.exit(1);
             }
     }
-    // tslint:enable:no-console
 };
+exports.stderrLogger = loggerImpl.bind(null, LogTo.STDERR);
+const logger = loggerImpl.bind(null, LogTo.STDOUT);
 exports.default = logger;

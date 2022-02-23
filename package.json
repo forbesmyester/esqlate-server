@@ -7,7 +7,7 @@
     "@types/mysql": "^2.15.8",
     "@types/open": "^6.2.1",
     "@types/yargs": "^15.0.7",
-    "ajv": "^6.10.2",
+    "ajv": "^6.12.6",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
     "esqlate-lib": "^1.0.8",

@@ -3,7 +3,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getQuery = void 0;
 const esqlate_lib_1 = require("esqlate-lib");
 const esqlate_promise_returning_function_to_generator_1 = __importDefault(require("esqlate-promise-returning-function-to-generator"));
 const esqlate_queue_1 = __importDefault(require("esqlate-queue"));
@@ -228,6 +227,17 @@ function getQueryRunner(parallelism = 1, logger) {
     return Promise.resolve({
         queue: esqlate_queue_1.default(getEsqlateQueueWorker(pool), parallelism),
         demand: getDemandRunner(pool),
+        closePool: () => {
+            return new Promise((resolve, reject) => {
+                pool.end((err) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    resolve();
+                });
+            });
+        },
+        worker: getEsqlateQueueWorker(pool),
     });
 }
 exports.default = getQueryRunner;

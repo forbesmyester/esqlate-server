@@ -3,7 +3,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getQueryRunner = exports.DatabaseType = void 0;
 const MySQLQueryRunner_1 = __importDefault(require("./MySQLQueryRunner"));
 const PostgreSQLQueryRunner_1 = __importDefault(require("./PostgreSQLQueryRunner"));
 var DatabaseType;

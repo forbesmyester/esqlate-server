@@ -9,6 +9,9 @@ function nextWrap(deps, ttl, f) {
         f(req, res, (err) => {
             deps.clearTimeout(t);
             if (err !== undefined) {
+                // if (!res.finished) {
+                //     res.status(500).end();
+                // }
                 return next(err);
             }
             next();
