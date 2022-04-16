@@ -19,7 +19,7 @@ const QueryRunner_1 = require("./QueryRunner");
 const path_1 = require("path");
 const middleware_1 = require("./middleware");
 const readline_1 = require("readline");
-const path_2 = require("path");
+const functions_2 = require("./functions");
 const fs_1 = require("fs");
 const DEFINITION_DIRECTORY = process.env.DEFINITION_DIRECTORY || (process.cwd() + "/example_definition");
 const loadDefinition = functions_1.getLoadDefinition({ definitionDirectory: DEFINITION_DIRECTORY });
@@ -122,7 +122,7 @@ class CmdRunner {
         if (resultId === null) {
             return { status: "pending" };
         }
-        const location = path_2.join(serviceInformation.getApiRoot(), "result", definitionName, resultId);
+        const location = functions_2.unixPathJoin(serviceInformation.getApiRoot(), "result", definitionName, resultId);
         return { status: "complete", location };
     }
     async result(definitionName, resultId) {

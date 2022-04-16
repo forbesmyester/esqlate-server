@@ -5,6 +5,7 @@ const path_1 = require("path");
 const functions_1 = require("./functions");
 const logger_1 = require("./logger");
 const persistence_1 = require("./persistence");
+const functions_2 = require("./functions");
 // TODO: Move types to seperate files
 const DEFINITION_DIRECTORY = process.env.DEFINITION_DIRECTORY;
 function setRequestLocal(req, k, v) {
@@ -179,7 +180,7 @@ exports.getResultCsv = getResultCsv;
 function esqlateResultEnsureFullFormatUrl({ getApiRoot }, definitionName, resultId, otherFormat) {
     return {
         ...otherFormat,
-        location: path_1.join(getApiRoot(), "result", definitionName, resultId) + ".csv",
+        location: functions_2.unixPathJoin(getApiRoot(), "result", definitionName, resultId) + ".csv",
     };
 }
 exports.esqlateResultEnsureFullFormatUrl = esqlateResultEnsureFullFormatUrl;

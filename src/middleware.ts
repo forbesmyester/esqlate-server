@@ -13,6 +13,7 @@ import randCryptoString from "random-crypto-string";
 import { EsqlateError, EsqlateErrorEnum, EsqlateErrorInvalidDefinition, EsqlateErrorInvalidRequestBody, EsqlateErrorMissingDefinition, EsqlateErrorMissingLocal, EsqlateErrorMissingVariables, Level, Logger } from "./logger";
 import { Persistence, safeDefinitionName, safeId } from "./persistence";
 import { DemandRunner, QueueItem, ResultCreated } from "./QueryRunner";
+import { unixPathJoin } from "./functions";
 
 // TODO: Move types to seperate files
 
@@ -237,7 +238,7 @@ export function getResultCsv({ persistence }: NeedsPersistence) {
 export function esqlateResultEnsureFullFormatUrl({ getApiRoot }: ServiceInformation, definitionName: string, resultId: string, otherFormat: EsqlateCompleteResultOtherFormat): EsqlateCompleteResultOtherFormat {
     return {
         ...otherFormat,
-        location: pathJoin(getApiRoot(), "result", definitionName, resultId) + ".csv",
+        location: unixPathJoin(getApiRoot(), "result", definitionName, resultId) + ".csv",
     };
 }
 

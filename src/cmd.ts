@@ -12,6 +12,7 @@ import {esqlateResultEnsureFullFormatUrl} from "./middleware";
 import { createInterface } from 'readline';
 import { spawn } from 'child_process';
 import { join as pathJoin } from "path";
+import { unixPathJoin } from "./functions";
 import {createReadStream} from "fs";
 
 const DEFINITION_DIRECTORY: string = process.env.DEFINITION_DIRECTORY || (process.cwd() + "/example_definition");
@@ -112,7 +113,7 @@ class CmdRunner {
     }
 
     async request(definitionName: string, args: EsqlateArgument[], alsoProcess: boolean) {
-
+        
         const queryRunner: DatabaseInterface = await this.getQueryRunner();
 
         const deps: CreateRequestDeps = {
@@ -165,7 +166,7 @@ class CmdRunner {
             return { status: "pending" };
         }
 
-        const location = pathJoin(
+        const location = unixPathJoin(
             serviceInformation.getApiRoot(),
             "result",
             definitionName,

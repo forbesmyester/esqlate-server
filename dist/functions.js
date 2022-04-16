@@ -20,6 +20,10 @@ const logger_1 = require("./logger");
 const persistence_1 = require("./persistence");
 const fs_1 = __importDefault(require("fs"));
 const path_2 = __importDefault(require("path"));
+function unixPathJoin(...ar) {
+    return ar.join("/").replace(/\/\/+/, "/");
+}
+exports.unixPathJoin = unixPathJoin;
 const ajv = new ajv_1.default();
 const schemaDefinition = __importStar(require("esqlate-lib/res/schema-definition.json"));
 const ajvValidateDefinition = ajv.compile(schemaDefinition);
@@ -52,14 +56,14 @@ function getVariables({ getApiRoot }, serverVariableRequester, definitionParamet
     const valid = ajvValidateRequestCreation(req.body);
     if (!valid) {
         const errors = ajvValidateRequestCreation.errors;
-        const msg = path_1.join(getApiRoot(), "request", definitionName) + ": " + JSON.stringify(errors);
+        const msg = unixPathJoin(getApiRoot(), "request", definitionName) + ": " + JSON.stringify(errors);
         throw new logger_1.EsqlateErrorInvalidRequestBody(msg);
     }
     const variables = get();
     const missingVariables = getMissingVariables(variables);
     if (missingVariables.length) {
         const errorMsg = "Missing Variables: " + JSON.stringify(missingVariables);
-        const msg = path_1.join(getApiRoot(), "request", definitionName) + ": " + JSON.stringify(errorMsg);
+        const msg = unixPathJoin(getApiRoot(), "request", definitionName) + ": " + JSON.stringify(errorMsg);
         throw new logger_1.EsqlateErrorMissingVariables(msg);
     }
     return variables;
@@ -184,7 +188,7 @@ function createRequestFile({ serverVariableRequester, loadDefinition, persistenc
     const definitionName = persistence_1.safeDefinitionName(req.params.definitionName);
     return createRequestSideEffects({ serverVariableRequester, loadDefinition, persistence, queue, serviceInformation: { getApiRoot } }, req)
         .then(({ definition, variables, requestId }) => {
-        return path_1.join(getApiRoot(), "request", definitionName, requestId);
+        return unixPathJoin(getApiRoot(), "request", definitionName, requestId);
     });
 }
 exports.createRequestFile = createRequestFile;
@@ -205,7 +209,7 @@ function createRequest({ serverVariableRequester, loadDefinition, persistence, q
         return requestId;
     })
         .then((requestId) => {
-        return path_1.join(getApiRoot(), "request", definitionName, requestId);
+        return unixPathJoin(getApiRoot(), "request", definitionName, requestId);
     });
 }
 exports.createRequest = createRequest;

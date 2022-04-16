@@ -14,6 +14,10 @@ import { DemandRunner } from "./QueryRunner";
 import fs from "fs";
 import path from "path";
 
+export function unixPathJoin(...ar: string[]): string {
+    return ar.join("/").replace(/\/\/+/, "/");
+}
+
 export interface ServiceInformation {
     getApiRoot: () => string;
 }
@@ -93,7 +97,7 @@ export function getVariables({ getApiRoot }: ServiceInformation, serverVariableR
 
     if (!valid) {
         const errors = ajvValidateRequestCreation.errors;
-        const msg = pathJoin(
+        const msg = unixPathJoin(
             getApiRoot(),
             "request",
             definitionName,
@@ -106,7 +110,7 @@ export function getVariables({ getApiRoot }: ServiceInformation, serverVariableR
     const missingVariables = getMissingVariables(variables);
     if (missingVariables.length) {
         const errorMsg = "Missing Variables: " + JSON.stringify(missingVariables);
-        const msg = pathJoin(
+        const msg = unixPathJoin(
             getApiRoot(),
             "request",
             definitionName,
@@ -297,7 +301,7 @@ export function createRequestFile({ serverVariableRequester, loadDefinition, per
 
     return createRequestSideEffects({ serverVariableRequester, loadDefinition, persistence, queue, serviceInformation: { getApiRoot } }, req)
         .then(({ definition, variables, requestId }) => {
-            return pathJoin(getApiRoot(), "request", definitionName, requestId);
+            return unixPathJoin(getApiRoot(), "request", definitionName, requestId);
         });
 }
 
@@ -321,7 +325,7 @@ export function createRequest({ serverVariableRequester, loadDefinition, persist
             return requestId;
         })
         .then((requestId) => {
-            return pathJoin(getApiRoot(), "request", definitionName, requestId);
+            return unixPathJoin(getApiRoot(), "request", definitionName, requestId);
         });
 }
 
